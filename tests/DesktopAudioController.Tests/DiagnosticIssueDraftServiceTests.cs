@@ -37,7 +37,7 @@ public sealed class DiagnosticIssueDraftServiceTests
         Assert.Contains("자동 제출하거나 zip을 자동 업로드하지 않습니다", draft.Body, StringComparison.Ordinal);
         Assert.DoesNotContain("device-secret", draft.Body, StringComparison.Ordinal);
         Assert.DoesNotContain("C:\\Users\\tester", draft.Body, StringComparison.Ordinal);
-        Assert.StartsWith("https://github.com/TailFox-Forge/DesktopAudioController/issues/new?", draft.IssueUrl, StringComparison.Ordinal);
+        Assert.StartsWith("https://github.com/SeoArin9142/DesktopAudioController/issues/new?", draft.IssueUrl, StringComparison.Ordinal);
         Assert.Contains(Uri.EscapeDataString(draft.Title), draft.IssueUrl, StringComparison.Ordinal);
         Assert.Contains(Uri.EscapeDataString("## 진단 요약"), draft.IssueUrl, StringComparison.Ordinal);
     }

@@ -11,7 +11,7 @@ namespace DesktopAudioController.Services;
 public sealed class GitHubReleaseUpdateCheckService : IUpdateCheckService
 {
     // 최신 릴리즈 조회에 사용할 GitHub Releases API입니다.
-    private static readonly Uri ReleasesApiUri = new("https://api.github.com/repos/TailFox-Forge/DesktopAudioController/releases?per_page=10");
+    private static readonly Uri ReleasesApiUri = new("https://api.github.com/repos/SeoArin9142/DesktopAudioController/releases?per_page=10");
 
     // GitHub API는 User-Agent 헤더가 필요합니다.
     private static readonly HttpClient DefaultHttpClient = CreateHttpClient();

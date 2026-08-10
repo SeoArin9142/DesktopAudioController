@@ -103,7 +103,7 @@ public partial class MainWindow : Window
     private bool _isExitRequested;
 
     // 사용자를 GitHub 릴리즈 목록으로 보내는 고정 URL입니다.
-    private static readonly string ReleasesPageUrl = "https://github.com/TailFox-Forge/DesktopAudioController/releases";
+    private static readonly string ReleasesPageUrl = "https://github.com/SeoArin9142/DesktopAudioController/releases";
 
     // 상태 이벤트 폭주 시 즉시 세션 갱신하지 않도록 짧게 모아두는 지연 시간입니다.
     private static readonly TimeSpan StateRefreshCoalescingDelay = TimeSpan.FromMilliseconds(120);
@@ -1088,7 +1088,7 @@ public partial class MainWindow : Window
         var body = Uri.EscapeDataString(
             $"## 요약\n이전 실행이 정상 종료되지 않았습니다.\n\n## 환경\n- 버전: {currentVersion}\n- 로그 폴더: {redactedLogDirectoryHint}\n\n## 확인 사항\n- 앱 실행 중 강제 종료/재부팅/블루스크린/크래시 가능성\n- 최신 로그 파일을 첨부해 주세요.\n");
 
-        return TryOpenReleasePage($"https://github.com/TailFox-Forge/DesktopAudioController/issues/new?labels=bug&title={title}&body={body}");
+        return TryOpenReleasePage($"https://github.com/SeoArin9142/DesktopAudioController/issues/new?labels=bug&title={title}&body={body}");
     }
 
     private void ApplyStartupStatus()

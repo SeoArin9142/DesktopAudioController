@@ -117,7 +117,7 @@ Windows에는 실제로 쓰지 않는 장치나 가상 장치가 섞여 있는 �
 - **런타임:** .NET 8 / WPF 기반
 
 릴리즈 페이지:  
-[https://github.com/TailFox-Forge/DesktopAudioController/releases/latest](https://github.com/TailFox-Forge/DesktopAudioController/releases/latest)
+[https://github.com/SeoArin9142/DesktopAudioController/releases/latest](https://github.com/SeoArin9142/DesktopAudioController/releases/latest)
 
 ---
 
@@ -188,8 +188,8 @@ Windows에서 장치별 / 앱별 오디오 제어를 자주 만지는 편이라�
 
 ## 다운로드
 
-- 최신 릴리즈: [https://github.com/TailFox-Forge/DesktopAudioController/releases/latest](https://github.com/TailFox-Forge/DesktopAudioController/releases/latest)
+- 최신 릴리즈: [https://github.com/SeoArin9142/DesktopAudioController/releases/latest](https://github.com/SeoArin9142/DesktopAudioController/releases/latest)
 
 ## 저장소
 
-- GitHub: [https://github.com/TailFox-Forge/DesktopAudioController](https://github.com/TailFox-Forge/DesktopAudioController)
+- GitHub: [https://github.com/SeoArin9142/DesktopAudioController](https://github.com/SeoArin9142/DesktopAudioController)

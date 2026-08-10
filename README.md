@@ -7,7 +7,7 @@ DesktopAudioController는 Windows에서 여러 출력 장치를 자주 바꾸거
 - 최신 버전: `v0.18.1`
 - 배포 형태: `win-x64` portable zip
 - 실행 환경: Windows 10/11 x64
-- 릴리즈 페이지: <https://github.com/TailFox-Forge/DesktopAudioController/releases>
+- 릴리즈 페이지: <https://github.com/SeoArin9142/DesktopAudioController/releases>
 
 ## 주요 기능
 
@@ -25,7 +25,7 @@ DesktopAudioController는 Windows에서 여러 출력 장치를 자주 바꾸거
 
 ## 빠른 시작
 
-1. [릴리즈 페이지](https://github.com/TailFox-Forge/DesktopAudioController/releases)에서 `DesktopAudioController-v0.18.1-win-x64.zip`을 다운로드합니다.
+1. [릴리즈 페이지](https://github.com/SeoArin9142/DesktopAudioController/releases)에서 `DesktopAudioController-v0.18.1-win-x64.zip`을 다운로드합니다.
 2. 원하는 위치에 압축을 풉니다.
 
 ```text
@@ -520,7 +520,7 @@ DesktopAudioController/
 - 회귀 검증 체크리스트: [docs/regression-checklist.md](docs/regression-checklist.md)
 - v1.0.0 출고 기준: [docs/v1-release-criteria.md](docs/v1-release-criteria.md)
 - 릴리즈 노트 템플릿: [docs/release-notes-template.md](docs/release-notes-template.md)
-- GitHub Releases: <https://github.com/TailFox-Forge/DesktopAudioController/releases>
+- GitHub Releases: <https://github.com/SeoArin9142/DesktopAudioController/releases>
 
 ## 라이선스
 

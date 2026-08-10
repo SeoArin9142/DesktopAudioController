@@ -143,6 +143,6 @@ public sealed class DiagnosticIssueDraftService
     {
         var encodedTitle = Uri.EscapeDataString(title);
         var encodedBody = Uri.EscapeDataString(body);
-        return $"https://github.com/TailFox-Forge/DesktopAudioController/issues/new?labels=bug&title={encodedTitle}&body={encodedBody}";
+        return $"https://github.com/SeoArin9142/DesktopAudioController/issues/new?labels=bug&title={encodedTitle}&body={encodedBody}";
     }
 }
