@@ -196,7 +196,9 @@ public partial class MainWindow : Window
         _startupWarningMessage = startupWarningMessage;
         _previousRunIncident = previousRunIncident;
         _requiresStartupBackgroundRefresh = requiresStartupBackgroundRefresh;
-        _trayMenuService = new TrayMenuService(() => RunOnUiThread(RestoreFromTray));
+        _trayMenuService = new TrayMenuService(
+            () => RunOnUiThread(RestoreFromTray),
+            () => RunOnUiThread(() => RefreshTrayMenu()));
         _sessionRefreshTimer = new DispatcherTimer();
         _sessionRefreshTimer.Tick += SessionRefreshTimer_OnTick;
         _updateCheckTimer = new DispatcherTimer
@@ -1381,6 +1383,14 @@ public partial class MainWindow : Window
                         {
                             // 트레이 토글 실패는 다음 새로고침에서 복구합니다.
                         }
+                    }),
+                    localDevice.Volume,
+                    volume => RunOnUiThread(() =>
+                    {
+                        // 슬라이더와 같은 경로라 짧은 지연 뒤 실제 장치 볼륨에 반영됩니다.
+                        AppLog.Info("MainWindow", $"트레이 볼륨 선택 deviceId={localDevice.Id} volume={volume}");
+                        localDevice.Volume = volume;
+                        RefreshTrayMenu(force: true);
                     }));
             })
             .ToList();

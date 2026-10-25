@@ -14,7 +14,7 @@ public sealed class TrayMenuService : IDisposable
     private readonly bool _ownsIcon;
     private string? _lastMenuSignature;
 
-    public TrayMenuService(Action restoreFromTray)
+    public TrayMenuService(Action restoreFromTray, Action? refreshBeforeOpening = null)
     {
         ArgumentNullException.ThrowIfNull(restoreFromTray);
 
@@ -28,6 +28,11 @@ public sealed class TrayMenuService : IDisposable
             ContextMenuStrip = new Forms.ContextMenuStrip()
         };
         _notifyIcon.DoubleClick += (_, _) => restoreFromTray();
+        if (refreshBeforeOpening is not null)
+        {
+            // 슬라이더로 바꾼 볼륨처럼 마지막 갱신 뒤 달라진 값을 메뉴를 여는 순간 다시 반영합니다.
+            _notifyIcon.ContextMenuStrip.Opening += (_, _) => refreshBeforeOpening();
+        }
     }
 
     public sealed record Device(
@@ -37,7 +42,9 @@ public sealed class TrayMenuService : IDisposable
         bool IsConnected,
         bool IsMuted,
         Action SetAsDefault,
-        Action ToggleMute);
+        Action ToggleMute,
+        int Volume = 0,
+        Action<int>? SetVolume = null);
 
     public sealed record MenuState(
         IReadOnlyList<Device> Devices,
@@ -90,6 +97,10 @@ public sealed class TrayMenuService : IDisposable
         {
             Enabled = false
         });
+        if (defaultDevice is { IsConnected: true, SetVolume: not null })
+        {
+            trayMenu.Items.Add(BuildVolumeMenu(defaultDevice));
+        }
 
         if (state.MinimizeToTray)
         {
@@ -192,6 +203,27 @@ public sealed class TrayMenuService : IDisposable
     }
 
     /// <summary>
+    /// 현재 기본 출력 장치 볼륨을 10% 단위로 고르는 메뉴입니다. 지금 볼륨과 가장 가까운 단계에 체크합니다.
+    /// </summary>
+    private static Forms.ToolStripMenuItem BuildVolumeMenu(Device device)
+    {
+        var volumeMenu = new Forms.ToolStripMenuItem($"볼륨: {device.Volume}%{(device.IsMuted ? " (음소거)" : string.Empty)}");
+        var nearestStep = (int)Math.Round(device.Volume / 10.0, MidpointRounding.AwayFromZero) * 10;
+        for (var volume = 100; volume >= 0; volume -= 10)
+        {
+            var localVolume = volume;
+            var volumeItem = new Forms.ToolStripMenuItem($"{volume}%")
+            {
+                Checked = volume == nearestStep
+            };
+            volumeItem.Click += (_, _) => device.SetVolume?.Invoke(localVolume);
+            volumeMenu.DropDownItems.Add(volumeItem);
+        }
+
+        return volumeMenu;
+    }
+
+    /// <summary>
     /// 프로필을 하위 메뉴가 아니라 메뉴 바로 아래에 번호와 단축키를 붙여 나열해 한 번에 고를 수 있게 합니다.
     /// 번호는 메인 화면 버튼·--profile-index 와 같은 이름순입니다.
     /// </summary>
@@ -247,7 +279,7 @@ public sealed class TrayMenuService : IDisposable
         var deviceSignature = string.Join(
             "\n",
             state.Devices.Select(device =>
-                $"{device.Id}|{device.Name}|{device.IsDefault}|{device.IsConnected}|{device.IsMuted}"));
+                $"{device.Id}|{device.Name}|{device.IsDefault}|{device.IsConnected}|{device.IsMuted}|{(device.IsDefault ? device.Volume : 0)}"));
         var appliedProfileId = AudioProfileStore.FindAppliedProfileId(state.Settings) ?? string.Empty;
         var profileSignature = string.Join(
             "\n",
