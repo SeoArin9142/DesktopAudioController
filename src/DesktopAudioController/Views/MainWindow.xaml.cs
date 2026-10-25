@@ -907,6 +907,23 @@ public partial class MainWindow : Window
     /// </summary>
     private void AudioNotificationService_OnChanged(object? sender, AudioNotificationChangedEventArgs e)
     {
+        if (e is { DeviceId: { } volumeDeviceId, Volume: { } externalVolume, IsMuted: { } externalMuted })
+        {
+            // 장치 볼륨 알림은 새 값이 함께 오므로 재열거 없이 장치 카드·트레이 메뉴에 바로 반영합니다.
+            RunOnUiThread(() =>
+            {
+                var device = _viewModel.VisibleDevices.FirstOrDefault(item => item.Id == volumeDeviceId);
+                if (device is null || (device.Volume == externalVolume && device.IsMuted == externalMuted))
+                {
+                    return;
+                }
+
+                AppLog.Debug("MainWindow", $"장치 볼륨 외부 변경 반영 deviceId={volumeDeviceId} volume={externalVolume} muted={externalMuted}");
+                device.ApplyExternalVolume(externalVolume, externalMuted);
+                RefreshTrayMenu();
+            });
+        }
+
         // 오디오 콜백은 서로 다른 스레드에서 거의 동시에 들어올 수 있으므로
         // 읽기-수정-쓰기 전체를 lock으로 감싸 원자적으로 처리합니다.
         lock (_notificationRefreshSyncRoot)

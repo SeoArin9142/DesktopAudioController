@@ -220,6 +220,29 @@ public sealed class VisibleDeviceViewModel : ObservableObject
     }
 
     /// <summary>
+    /// Windows 쪽에서 바뀐 장치 볼륨·음소거를 화면에만 반영합니다(장치로 다시 보내지 않음).
+    /// 사용자가 슬라이더를 끄는 중이라 아직 보내지 않은 값이 있으면 그 값을 우선합니다.
+    /// </summary>
+    public void ApplyExternalVolume(int volume, bool isMuted)
+    {
+        if (_hasPendingVolumeCommit)
+        {
+            return;
+        }
+
+        _suppressCallbacks = true;
+        try
+        {
+            Volume = Math.Clamp(volume, 0, 100);
+            IsMuted = isMuted;
+        }
+        finally
+        {
+            _suppressCallbacks = false;
+        }
+    }
+
+    /// <summary>
     /// 사용자가 슬라이더 조작을 잠시 멈추면 마지막 값만 서비스에 반영합니다.
     /// </summary>
     private void VolumeCommitTimer_OnTick(object? sender, EventArgs e)

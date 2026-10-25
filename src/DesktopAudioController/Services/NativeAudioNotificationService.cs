@@ -113,6 +113,29 @@ public sealed class NativeAudioNotificationService : IAudioNotificationService
     }
 
     /// <summary>
+    /// 장치 마스터 볼륨이 Windows 볼륨 믹서·키보드 볼륨 키 등으로 바뀌었을 때 새 값을 함께 알립니다.
+    /// </summary>
+    internal void HandleDeviceVolumeChanged(string deviceId, float masterVolume, bool isMuted)
+    {
+        if (_disposeRequested)
+        {
+            return;
+        }
+
+        try
+        {
+            RaiseChanged(new AudioNotificationChangedEventArgs(
+                deviceId,
+                (int)Math.Round(masterVolume * 100),
+                isMuted));
+        }
+        catch (Exception exception)
+        {
+            AppLog.Error("NativeAudioNotificationService", "장치 볼륨 변경 처리 중 예외", exception);
+        }
+    }
+
+    /// <summary>
     /// 세션 생성/만료처럼 구독 집합을 다시 짜야 하는 변화는 내부 구독만 재구성하고 UI에는 상태 갱신으로 알립니다.
     /// </summary>
     internal void HandleSessionCollectionChanged()
@@ -166,7 +189,9 @@ public sealed class NativeAudioNotificationService : IAudioNotificationService
             var subscription = new DeviceSubscription(device);
 
             // 장치 마스터 볼륨 물리 버튼/외부 UI 변경을 잡기 위한 콜백입니다.
-            subscription.VolumeHandler = _ => HandleStateChanged();
+            // 알림에 새 볼륨·음소거 값이 들어 있으므로 장치 ID와 함께 그대로 전달합니다.
+            var deviceId = device.ID;
+            subscription.VolumeHandler = data => HandleDeviceVolumeChanged(deviceId, data.MasterVolume, data.Muted);
             subscription.EndpointVolume = device.AudioEndpointVolume;
             subscription.EndpointVolume.OnVolumeNotification += subscription.VolumeHandler;
 
@@ -236,12 +261,16 @@ public sealed class NativeAudioNotificationService : IAudioNotificationService
     /// </summary>
     private void RaiseChanged(AudioNotificationChangeKind kind)
     {
+        RaiseChanged(new AudioNotificationChangedEventArgs(kind));
+    }
+
+    private void RaiseChanged(AudioNotificationChangedEventArgs args)
+    {
         if (_disposeRequested || Changed is null)
         {
             return;
         }
 
-        var args = new AudioNotificationChangedEventArgs(kind);
         foreach (EventHandler<AudioNotificationChangedEventArgs> handler in Changed.GetInvocationList())
         {
             try
@@ -250,7 +279,7 @@ public sealed class NativeAudioNotificationService : IAudioNotificationService
             }
             catch (Exception exception)
             {
-                AppLog.Error("NativeAudioNotificationService", $"변경 이벤트 전달 중 예외 kind={kind}", exception);
+                AppLog.Error("NativeAudioNotificationService", $"변경 이벤트 전달 중 예외 kind={args.Kind}", exception);
             }
         }
     }

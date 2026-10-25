@@ -11,9 +11,35 @@ public sealed class AudioNotificationChangedEventArgs : EventArgs
     }
 
     /// <summary>
+    /// 장치 마스터 볼륨 알림입니다. 알림에 새 값이 함께 오므로 장치를 다시 열거하지 않고 바로 반영할 수 있습니다.
+    /// </summary>
+    public AudioNotificationChangedEventArgs(string deviceId, int volume, bool isMuted)
+        : this(AudioNotificationChangeKind.State)
+    {
+        DeviceId = deviceId;
+        Volume = volume;
+        IsMuted = isMuted;
+    }
+
+    /// <summary>
     /// 현재 알림의 변경 종류입니다.
     /// </summary>
     public AudioNotificationChangeKind Kind { get; }
+
+    /// <summary>
+    /// 장치 마스터 볼륨 알림이면 대상 장치 ID입니다. 다른 알림이면 null 입니다.
+    /// </summary>
+    public string? DeviceId { get; }
+
+    /// <summary>
+    /// 장치 마스터 볼륨 알림의 새 볼륨(0~100)입니다.
+    /// </summary>
+    public int? Volume { get; }
+
+    /// <summary>
+    /// 장치 마스터 볼륨 알림의 새 음소거 상태입니다.
+    /// </summary>
+    public bool? IsMuted { get; }
 }
 
 /// <summary>
