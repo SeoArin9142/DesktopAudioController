@@ -1,4 +1,5 @@
 using System.Reflection;
+using DesktopAudioController.Localization;
 
 namespace DesktopAudioController.Services;
 
@@ -23,7 +24,7 @@ public static class AppBuildInfo
                 : informationalVersion;
         }
 
-        return CurrentAssembly.GetName().Version?.ToString() ?? "알 수 없음";
+        return CurrentAssembly.GetName().Version?.ToString() ?? Loc.T("알 수 없음");
     }
 
     private static string GetSourceRevision()

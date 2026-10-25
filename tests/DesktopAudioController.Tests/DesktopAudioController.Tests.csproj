@@ -33,6 +33,8 @@
     <Compile Include="..\..\src\DesktopAudioController\Services\AutoProfileSwitchEngine.cs" Link="Source\Services\AutoProfileSwitchEngine.cs" />
     <Compile Include="..\..\src\DesktopAudioController\Services\AutoProfileSettingsValidator.cs" Link="Source\Services\AutoProfileSettingsValidator.cs" />
     <Compile Include="..\..\src\DesktopAudioController\Services\HotkeyGesture.cs" Link="Source\Services\HotkeyGesture.cs" />
+    <Compile Include="..\..\src\DesktopAudioController\Localization\Loc.cs" Link="Source\Localization\Loc.cs" />
+    <Compile Include="..\..\src\DesktopAudioController\Localization\EnglishStrings.cs" Link="Source\Localization\EnglishStrings.cs" />
     <Compile Include="..\..\src\DesktopAudioController\Services\ProfileCommandLine.cs" Link="Source\Services\ProfileCommandLine.cs" />
     <Compile Include="..\..\src\DesktopAudioController\Services\ProfileDeviceResolver.cs" Link="Source\Services\ProfileDeviceResolver.cs" />
     <Compile Include="..\..\src\DesktopAudioController\Services\AudioProcessOutputChangeCommand.cs" Link="Source\Services\AudioProcessOutputChangeCommand.cs" />

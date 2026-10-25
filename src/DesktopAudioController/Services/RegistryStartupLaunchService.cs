@@ -1,4 +1,5 @@
 using Microsoft.Win32;
+using DesktopAudioController.Localization;
 
 namespace DesktopAudioController.Services;
 
@@ -36,7 +37,7 @@ public sealed class RegistryStartupLaunchService : IStartupLaunchService
             using var runKey = Registry.CurrentUser.CreateSubKey(RunRegistryPath, writable: true);
             if (runKey is null)
             {
-                throw new InvalidOperationException("자동 실행 레지스트리 키를 열지 못했습니다.");
+                throw new InvalidOperationException(Loc.T("자동 실행 레지스트리 키를 열지 못했습니다."));
             }
 
             if (!enabled)
@@ -50,7 +51,7 @@ public sealed class RegistryStartupLaunchService : IStartupLaunchService
             var processPath = Environment.ProcessPath;
             if (string.IsNullOrWhiteSpace(processPath))
             {
-                throw new InvalidOperationException("현재 실행 파일 경로를 확인하지 못했습니다.");
+                throw new InvalidOperationException(Loc.T("현재 실행 파일 경로를 확인하지 못했습니다."));
             }
 
             // 공백이 있는 경로도 자동 실행 시 정확히 해석되도록 큰따옴표로 감싸고,
@@ -63,7 +64,7 @@ public sealed class RegistryStartupLaunchService : IStartupLaunchService
         catch (Exception exception)
         {
             throw new StartupRegistrationException(
-                "Windows 자동 실행 옵션을 적용하지 못했습니다.",
+                Loc.T("Windows 자동 실행 옵션을 적용하지 못했습니다."),
                 $@"HKEY_CURRENT_USER\{RunRegistryPath}",
                 RunValueName,
                 exception);

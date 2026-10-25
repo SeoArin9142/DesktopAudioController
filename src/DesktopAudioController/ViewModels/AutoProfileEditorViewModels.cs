@@ -9,6 +9,11 @@ namespace DesktopAudioController.ViewModels;
 public sealed record DeviceOptionViewModel(string Id, string Name);
 
 /// <summary>
+/// 화면 언어 선택지입니다. Value 가 비어 있으면 Windows 표시 언어를 따릅니다.
+/// </summary>
+public sealed record LanguageOptionViewModel(string Value, string Name);
+
+/// <summary>
 /// 자동 규칙이 끝났을 때의 동작 선택지입니다.
 /// </summary>
 public sealed record RestoreModeOptionViewModel(AutoProfileRestoreMode Mode, string Name);

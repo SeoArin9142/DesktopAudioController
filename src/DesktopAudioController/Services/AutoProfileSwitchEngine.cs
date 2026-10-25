@@ -1,4 +1,5 @@
 using DesktopAudioController.Models;
+using DesktopAudioController.Localization;
 
 namespace DesktopAudioController.Services;
 
@@ -64,10 +65,10 @@ internal sealed class AutoProfileSwitchEngine
 
             ActiveRuleId = rule.Id;
             _activeProfileId = rule.ProfileId;
-            var reason = $"규칙 '{DescribeRule(rule)}'(우선순위 {priority}) - {processName} 실행 중";
+            var reason = Loc.F("규칙 '{0}'(우선순위 {1}) - {2} 실행 중", DescribeRule(rule), priority, processName);
             if (previousRuleName is not null)
             {
-                reason += $", 이전 규칙 '{previousRuleName}' 대신 적용";
+                reason += Loc.F(", 이전 규칙 '{0}' 대신 적용", previousRuleName);
             }
 
             return new AutoProfileDecision(rule.ProfileId, rule.Id, reason, IsRestore: false);
@@ -79,7 +80,7 @@ internal sealed class AutoProfileSwitchEngine
         }
 
         var endedRule = settings.AutoProfileRules.FirstOrDefault(item => item.Id == ActiveRuleId);
-        var endedRuleName = endedRule is null ? "삭제된 규칙" : DescribeRule(endedRule);
+        var endedRuleName = endedRule is null ? Loc.T("삭제된 규칙") : DescribeRule(endedRule);
         var restoreMode = endedRule?.RestoreMode ?? AutoProfileRestoreMode.PreviousProfile;
         var profileBeforeAuto = _profileBeforeAuto;
         var endedRuleId = ActiveRuleId;
@@ -87,26 +88,26 @@ internal sealed class AutoProfileSwitchEngine
 
         if (restoreMode == AutoProfileRestoreMode.KeepCurrent)
         {
-            return new AutoProfileDecision(null, endedRuleId, $"규칙 '{endedRuleName}' 종료 - 설정대로 현재 프로필 유지", IsRestore: true);
+            return new AutoProfileDecision(null, endedRuleId, Loc.F("규칙 '{0}' 종료 - 설정대로 현재 프로필 유지", endedRuleName), IsRestore: true);
         }
 
         var (targetProfileId, targetDescription) = restoreMode == AutoProfileRestoreMode.FallbackProfile
-            ? (settings.AutoProfileFallbackProfileId, "기본 프로필")
-            : (profileBeforeAuto, "이전 프로필");
+            ? (settings.AutoProfileFallbackProfileId, Loc.T("기본 프로필"))
+            : (profileBeforeAuto, Loc.T("이전 프로필"));
 
         if (string.IsNullOrWhiteSpace(targetProfileId) || !profileIds.Contains(targetProfileId))
         {
             return new AutoProfileDecision(
                 null,
                 endedRuleId,
-                $"규칙 '{endedRuleName}' 종료 - 돌아갈 {targetDescription}이 없어 현재 프로필 유지",
+                Loc.F("규칙 '{0}' 종료 - 돌아갈 {1}이 없어 현재 프로필 유지", endedRuleName, targetDescription),
                 IsRestore: true);
         }
 
         return new AutoProfileDecision(
             targetProfileId,
             endedRuleId,
-            $"규칙 '{endedRuleName}' 종료 - {targetDescription}로 복귀",
+            Loc.F("규칙 '{0}' 종료 - {1}로 복귀", endedRuleName, targetDescription),
             IsRestore: true);
     }
 
@@ -143,7 +144,7 @@ internal sealed class AutoProfileSwitchEngine
     {
         if (rule is null)
         {
-            return "알 수 없는 규칙";
+            return Loc.T("알 수 없는 규칙");
         }
 
         return string.IsNullOrWhiteSpace(rule.Name)

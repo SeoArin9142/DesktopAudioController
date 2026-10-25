@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.IO;
 using DesktopAudioController.Models;
+using DesktopAudioController.Localization;
 
 namespace DesktopAudioController.Services;
 
@@ -163,7 +164,7 @@ public sealed class WorkerBackedAudioDeviceCatalogService : IAudioDeviceCatalogS
                 $"워커 probe 시작 executablePath={_executablePath} outputPath={tempOutputPath} timeoutMs={(int)ProbeTimeout.TotalMilliseconds}");
 
             using var process = Process.Start(startInfo)
-                ?? throw new InvalidOperationException("오디오 probe 워커 프로세스를 시작하지 못했습니다.");
+                ?? throw new InvalidOperationException(Loc.T("오디오 probe 워커 프로세스를 시작하지 못했습니다."));
 
             var waitForExitTask = process.WaitForExitAsync();
             var completedTask = await Task.WhenAny(waitForExitTask, Task.Delay(ProbeTimeout));
@@ -181,7 +182,7 @@ public sealed class WorkerBackedAudioDeviceCatalogService : IAudioDeviceCatalogS
 
             if (!File.Exists(tempOutputPath))
             {
-                throw new FileNotFoundException("오디오 probe 결과 파일이 생성되지 않았습니다.", tempOutputPath);
+                throw new FileNotFoundException(Loc.T("오디오 probe 결과 파일이 생성되지 않았습니다."), tempOutputPath);
             }
 
             var snapshot = AudioDeviceStartupSnapshotService.ReadProbeOutput(tempOutputPath);

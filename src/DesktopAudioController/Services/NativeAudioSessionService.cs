@@ -3,6 +3,7 @@ using NAudio.CoreAudioApi.Interfaces;
 using DesktopAudioController.Models;
 using System.Diagnostics;
 using System.IO;
+using DesktopAudioController.Localization;
 
 namespace DesktopAudioController.Services;
 
@@ -190,7 +191,7 @@ public sealed class NativeAudioSessionService : IAudioSessionService, IDisposabl
         var processId = targetSession.GetProcessID;
         if (processId == 0)
         {
-            throw new InvalidOperationException("프로세스 ID가 없는 오디오 세션은 출력 장치를 변경할 수 없습니다.");
+            throw new InvalidOperationException(Loc.T("프로세스 ID가 없는 오디오 세션은 출력 장치를 변경할 수 없습니다."));
         }
 
         // 정책 API는 "세션"이 아니라 "프로세스의 앱별 출력 정책"을 바꿉니다.
@@ -235,7 +236,7 @@ public sealed class NativeAudioSessionService : IAudioSessionService, IDisposabl
         var normalizedName = ProcessNameMatcher.Normalize(processName);
         if (normalizedName.Length == 0)
         {
-            throw new ArgumentException("프로세스 이름이 비어 있습니다.", nameof(processName));
+            throw new ArgumentException(Loc.T("프로세스 이름이 비어 있습니다."), nameof(processName));
         }
 
         var processIds = new List<uint>();
@@ -396,7 +397,7 @@ public sealed class NativeAudioSessionService : IAudioSessionService, IDisposabl
     {
         if (session.IsSystemSoundsSession)
         {
-            return "Windows 시스템 사운드";
+            return Loc.T("Windows 시스템 사운드");
         }
 
         // displayName은 앱이 직접 제공한 표시 이름입니다.

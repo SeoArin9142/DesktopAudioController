@@ -1,5 +1,6 @@
 using System.IO;
 using System.Text.Json;
+using DesktopAudioController.Localization;
 
 namespace DesktopAudioController.Services;
 
@@ -51,7 +52,7 @@ public sealed class AppRunStateService
             ? new PreviousRunIncident(
                 true,
                 previousState.StartedAtUtc,
-                "이전 실행이 정상 종료되지 않았습니다. 로그를 확인하고 필요하면 이슈를 남겨 주세요.")
+                Loc.T("이전 실행이 정상 종료되지 않았습니다. 로그를 확인하고 필요하면 이슈를 남겨 주세요."))
             : PreviousRunIncident.None;
 
         SaveState(new AppRunState

@@ -1,5 +1,6 @@
 using System.Runtime.InteropServices;
 using System.Windows.Interop;
+using DesktopAudioController.Localization;
 
 namespace DesktopAudioController.Services;
 
@@ -52,7 +53,7 @@ public sealed class GlobalHotkeyService : IDisposable
         {
             if (!HotkeyGesture.TryParse(registration.Hotkey, out var gesture, out var parseError) || gesture is null)
             {
-                failures.Add($"'{registration.ProfileName}' 단축키 '{registration.Hotkey}': {parseError}");
+                failures.Add(Loc.F("'{0}' 단축키 '{1}': {2}", registration.ProfileName, registration.Hotkey, parseError));
                 continue;
             }
 
@@ -61,9 +62,9 @@ public sealed class GlobalHotkeyService : IDisposable
             {
                 var errorCode = Marshal.GetLastWin32Error();
                 var reason = errorCode == ErrorHotkeyAlreadyRegistered
-                    ? "다른 프로그램이 이미 쓰고 있습니다"
-                    : $"Windows 오류 {errorCode}";
-                failures.Add($"'{registration.ProfileName}' 단축키 {gesture.DisplayText}: {reason}");
+                    ? Loc.T("다른 프로그램이 이미 쓰고 있습니다")
+                    : Loc.F("Windows 오류 {0}", errorCode);
+                failures.Add(Loc.F("'{0}' 단축키 {1}: {2}", registration.ProfileName, gesture.DisplayText, reason));
                 AppLog.Warn("GlobalHotkeyService", $"단축키 등록 실패 profileId={registration.ProfileId} hotkey={gesture.DisplayText} win32Error={errorCode}");
                 continue;
             }

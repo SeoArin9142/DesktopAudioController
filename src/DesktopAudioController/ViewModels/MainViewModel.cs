@@ -5,6 +5,7 @@ using DesktopAudioController.Infrastructure;
 using DesktopAudioController.Models;
 using DesktopAudioController.Services;
 using System.Windows.Threading;
+using DesktopAudioController.Localization;
 
 namespace DesktopAudioController.ViewModels;
 
@@ -852,7 +853,7 @@ public sealed class MainViewModel : ObservableObject
 
     private static string BuildPlaybackStateLabel(string? currentLabel)
     {
-        const string inactiveLabel = "현재 재생 중 아님";
+        var inactiveLabel = Loc.T("현재 재생 중 아님");
 
         if (string.IsNullOrWhiteSpace(currentLabel))
         {
@@ -966,7 +967,7 @@ public sealed class MainViewModel : ObservableObject
     private static string? BuildExecutablePathHint(string? path)
     {
         var tail = BuildReadablePathTail(path);
-        return string.IsNullOrWhiteSpace(tail) ? null : $"실행 파일: {tail}";
+        return string.IsNullOrWhiteSpace(tail) ? null : Loc.F("실행 파일: {0}", tail);
     }
 
     /// <summary>
@@ -975,7 +976,7 @@ public sealed class MainViewModel : ObservableObject
     private static string? BuildSessionPathHint(string? path)
     {
         var tail = BuildReadablePathTail(path);
-        return string.IsNullOrWhiteSpace(tail) ? null : $"세션 경로: {tail}";
+        return string.IsNullOrWhiteSpace(tail) ? null : Loc.F("세션 경로: {0}", tail);
     }
 
     /// <summary>
@@ -990,14 +991,14 @@ public sealed class MainViewModel : ObservableObject
             var guidLength = Math.Min(8, sessionId.Length - guidStart);
             if (guidLength > 0)
             {
-                return $"세션 ID: {sessionId.Substring(guidStart, guidLength)}";
+                return Loc.F("세션 ID: {0}", sessionId.Substring(guidStart, guidLength));
             }
         }
 
         var trimmedSessionId = sessionId.Trim();
         return trimmedSessionId.Length <= 8
-            ? $"세션 ID: {trimmedSessionId}"
-            : $"세션 ID: {trimmedSessionId[^8..]}";
+            ? Loc.F("세션 ID: {0}", trimmedSessionId)
+            : Loc.F("세션 ID: {0}", trimmedSessionId[^8..]);
     }
 
     /// <summary>
@@ -1350,7 +1351,8 @@ public sealed class MainViewModel : ObservableObject
             AutoProfileRules = AudioProfileStore.CloneAutoProfileRules(settings.AutoProfileRules),
             AutoProfileFallbackProfileId = settings.AutoProfileFallbackProfileId,
             ShowAutoProfileNotifications = settings.ShowAutoProfileNotifications,
-            EnableProfileHotkeys = settings.EnableProfileHotkeys
+            EnableProfileHotkeys = settings.EnableProfileHotkeys,
+            UiLanguage = settings.UiLanguage
         };
     }
 

@@ -1,4 +1,5 @@
 using System.Windows;
+using DesktopAudioController.Localization;
 
 namespace DesktopAudioController.Views;
 
@@ -22,8 +23,8 @@ public partial class ProfileNameWindow : Window
         {
             System.Windows.MessageBox.Show(
                 this,
-                "프로필 이름을 입력해 주세요.",
-                "프로필 이름 필요",
+                Loc.T("프로필 이름을 입력해 주세요."),
+                Loc.T("프로필 이름 필요"),
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);
             return;

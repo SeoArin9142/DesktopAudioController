@@ -1,4 +1,5 @@
 using DesktopAudioController.Models;
+using DesktopAudioController.Localization;
 
 namespace DesktopAudioController.Services;
 
@@ -31,7 +32,7 @@ internal static class ProgramAudioPreferenceStore
         var matchKey = ResolveMatchKey(session);
         if (matchKey is null)
         {
-            throw new InvalidOperationException("프로그램 설정 저장용 매칭 키를 계산할 수 없습니다.");
+            throw new InvalidOperationException(Loc.T("프로그램 설정 저장용 매칭 키를 계산할 수 없습니다."));
         }
 
         var preference = existingPreference ?? new ProgramAudioPreference

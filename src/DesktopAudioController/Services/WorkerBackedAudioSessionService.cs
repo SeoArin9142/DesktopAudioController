@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Text.Json;
 using DesktopAudioController.Models;
+using DesktopAudioController.Localization;
 
 namespace DesktopAudioController.Services;
 
@@ -43,7 +44,7 @@ public sealed class WorkerBackedAudioSessionService : IAudioSessionService, IDis
     {
         // 같은 exe를 --change-session-output 모드로 실행하고 JSON 결과 파일로 성공/실패를 받습니다.
         RunOutputChangeWorker(
-            "세션 출력 변경",
+            Loc.T("세션 출력 변경"),
             $"deviceId={deviceId} sessionId={sessionId} targetDeviceId={targetDeviceId}",
             (startInfo, resultOutputPath) => AudioSessionOutputChangeCommand.Apply(
                 startInfo,
@@ -57,7 +58,7 @@ public sealed class WorkerBackedAudioSessionService : IAudioSessionService, IDis
     public int SetProcessOutputDevice(string processName, string targetDeviceId)
     {
         var result = RunOutputChangeWorker(
-            "프로세스 출력 변경",
+            Loc.T("프로세스 출력 변경"),
             $"processName={processName} deviceId={(string.IsNullOrWhiteSpace(targetDeviceId) ? "(Windows 기본)" : targetDeviceId)}",
             (startInfo, resultOutputPath) => AudioProcessOutputChangeCommand.Apply(
                 startInfo,
@@ -94,12 +95,12 @@ public sealed class WorkerBackedAudioSessionService : IAudioSessionService, IDis
                 $"{operationName} 워커 시작 {logDetail} timeoutMs={(int)OutputChangeTimeout.TotalMilliseconds}");
 
             using var process = Process.Start(startInfo)
-                ?? throw new InvalidOperationException($"{operationName} 워커 프로세스를 시작하지 못했습니다.");
+                ?? throw new InvalidOperationException(Loc.F("{0} 워커 프로세스를 시작하지 못했습니다.", operationName));
 
             if (!process.WaitForExit((int)OutputChangeTimeout.TotalMilliseconds))
             {
                 TryKill(process);
-                throw new TimeoutException($"{operationName} 워커가 제한 시간 안에 끝나지 않았습니다.");
+                throw new TimeoutException(Loc.F("{0} 워커가 제한 시간 안에 끝나지 않았습니다.", operationName));
             }
 
             var result = TryReadResult(tempOutputPath);
@@ -116,7 +117,7 @@ public sealed class WorkerBackedAudioSessionService : IAudioSessionService, IDis
 
             if (result is { Success: false })
             {
-                throw new InvalidOperationException(result.ErrorMessage ?? $"{operationName} 워커가 실패했습니다.");
+                throw new InvalidOperationException(result.ErrorMessage ?? Loc.F("{0} 워커가 실패했습니다.", operationName));
             }
 
             AppLog.Info(

@@ -1,4 +1,5 @@
 using DesktopAudioController.Models;
+using DesktopAudioController.Localization;
 
 namespace DesktopAudioController.Services;
 
@@ -24,7 +25,7 @@ internal static class UnavailableAudioServices
 
     private static InvalidOperationException CreateUnavailableException()
     {
-        return new InvalidOperationException("오디오 서비스가 제한 모드로 비활성화되었습니다.");
+        return new InvalidOperationException(Loc.T("오디오 서비스가 제한 모드로 비활성화되었습니다."));
     }
 
     private sealed class DeviceCatalogService : IAudioDeviceCatalogService

@@ -1,4 +1,5 @@
 using DesktopAudioController.Models;
+using DesktopAudioController.Localization;
 
 namespace DesktopAudioController.Services;
 
@@ -26,7 +27,7 @@ internal static class AutoProfileSettingsValidator
         for (var index = 0; index < settings.AutoProfileRules.Count; index++)
         {
             var rule = settings.AutoProfileRules[index];
-            var label = $"자동 전환 규칙 {index + 1}";
+            var label = Loc.F("자동 전환 규칙 {0}", index + 1);
             if (!string.IsNullOrWhiteSpace(rule.Name))
             {
                 label += $" '{rule.Name.Trim()}'";
@@ -34,19 +35,19 @@ internal static class AutoProfileSettingsValidator
 
             if (rule.ProcessNames.All(name => ProcessNameMatcher.Normalize(name).Length == 0))
             {
-                problems.Add($"{label}: 감시할 프로그램 이름을 적어 주세요. (예: TslGame.exe)");
+                problems.Add(Loc.F("{0}: 감시할 프로그램 이름을 적어 주세요. (예: TslGame.exe)", label));
             }
 
             if (!profileIds.Contains(rule.ProfileId))
             {
-                problems.Add($"{label}: 적용할 프로필을 골라 주세요.");
+                problems.Add(Loc.F("{0}: 적용할 프로필을 골라 주세요.", label));
             }
 
             if (rule.IsEnabled &&
                 rule.RestoreMode == AutoProfileRestoreMode.FallbackProfile &&
                 !profileIds.Contains(settings.AutoProfileFallbackProfileId))
             {
-                problems.Add($"{label}: '기본 프로필로'를 고르려면 위의 기본 프로필을 지정해 주세요.");
+                problems.Add(Loc.F("{0}: '기본 프로필로'를 고르려면 위의 기본 프로필을 지정해 주세요.", label));
             }
         }
 
@@ -60,13 +61,13 @@ internal static class AutoProfileSettingsValidator
 
             if (!HotkeyGesture.TryParse(profile.Hotkey, out var gesture, out var error) || gesture is null)
             {
-                problems.Add($"프로필 '{profile.Name}' 단축키: {error}");
+                problems.Add(Loc.F("프로필 '{0}' 단축키: {1}", profile.Name, error));
                 continue;
             }
 
             if (hotkeyOwners.TryGetValue(gesture.DisplayText, out var ownerName))
             {
-                problems.Add($"프로필 '{profile.Name}' 단축키 {gesture.DisplayText}가 프로필 '{ownerName}'와 겹칩니다.");
+                problems.Add(Loc.F("프로필 '{0}' 단축키 {1}가 프로필 '{2}'와 겹칩니다.", profile.Name, gesture.DisplayText, ownerName));
                 continue;
             }
 

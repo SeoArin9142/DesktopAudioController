@@ -1,3 +1,5 @@
+using DesktopAudioController.Localization;
+
 namespace DesktopAudioController.Services;
 
 /// <summary>
@@ -34,7 +36,7 @@ internal sealed record HotkeyGesture(uint Modifiers, uint VirtualKey, string Dis
             .Split('+', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
         if (parts.Length == 0)
         {
-            error = "단축키가 비어 있습니다.";
+            error = Loc.T("단축키가 비어 있습니다.");
             return false;
         }
 
@@ -44,7 +46,7 @@ internal sealed record HotkeyGesture(uint Modifiers, uint VirtualKey, string Dis
             var modifier = ParseModifier(parts[index]);
             if (modifier == 0)
             {
-                error = $"'{parts[index]}'은(는) 알 수 없는 보조 키입니다. Ctrl, Alt, Shift, Win 중에서 고르세요.";
+                error = Loc.F("'{0}'은(는) 알 수 없는 보조 키입니다. Ctrl, Alt, Shift, Win 중에서 고르세요.", parts[index]);
                 return false;
             }
 
@@ -53,7 +55,7 @@ internal sealed record HotkeyGesture(uint Modifiers, uint VirtualKey, string Dis
 
         if (!TryParseKey(parts[^1], out var virtualKey, out var keyName))
         {
-            error = $"'{parts[^1]}'은(는) 쓸 수 없는 키입니다. A~Z, 0~9, F1~F24, Num0~Num9, 방향키 등을 쓰세요.";
+            error = Loc.F("'{0}'은(는) 쓸 수 없는 키입니다. A~Z, 0~9, F1~F24, Num0~Num9, 방향키 등을 쓰세요.", parts[^1]);
             return false;
         }
 
@@ -61,7 +63,7 @@ internal sealed record HotkeyGesture(uint Modifiers, uint VirtualKey, string Dis
         var isHighFunctionKey = virtualKey is >= 0x7C and <= 0x87;
         if (modifiers == 0 && !isHighFunctionKey)
         {
-            error = "다른 프로그램 입력을 막지 않도록 Ctrl, Alt, Shift, Win 중 하나 이상을 함께 눌러야 합니다.";
+            error = Loc.T("다른 프로그램 입력을 막지 않도록 Ctrl, Alt, Shift, Win 중 하나 이상을 함께 눌러야 합니다.");
             return false;
         }
 

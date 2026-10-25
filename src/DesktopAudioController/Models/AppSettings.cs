@@ -90,4 +90,9 @@ public sealed class AppSettings
     /// 프로필별 전역 단축키를 등록할지 여부입니다.
     /// </summary>
     public bool EnableProfileHotkeys { get; set; }
+
+    /// <summary>
+    /// 화면 언어입니다. 비어 있으면 Windows 표시 언어를 따르고, "ko" 또는 "en" 이면 그 언어로 고정합니다.
+    /// </summary>
+    public string UiLanguage { get; set; } = string.Empty;
 }

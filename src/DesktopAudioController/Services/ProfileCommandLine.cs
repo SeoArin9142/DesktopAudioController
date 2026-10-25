@@ -1,4 +1,5 @@
 using System.Text;
+using DesktopAudioController.Localization;
 
 namespace DesktopAudioController.Services;
 
@@ -108,7 +109,7 @@ public static class ProfileCommandLine
         var normalizedRequest = NormalizeName(requestedName);
         if (normalizedRequest.Length == 0)
         {
-            error = "이름이 비어 있습니다.";
+            error = Loc.T("이름이 비어 있습니다.");
             return null;
         }
 
@@ -128,8 +129,8 @@ public static class ProfileCommandLine
         }
 
         error = partial.Count == 0
-            ? $"'{requestedName}'에 맞는 항목이 없습니다."
-            : $"'{requestedName}'에 맞는 항목이 여러 개입니다: {string.Join(", ", partial.Select(nameSelector))}";
+            ? Loc.F("'{0}'에 맞는 항목이 없습니다.", requestedName)
+            : Loc.F("'{0}'에 맞는 항목이 여러 개입니다: {1}", requestedName, string.Join(", ", partial.Select(nameSelector)));
         return null;
     }
 }

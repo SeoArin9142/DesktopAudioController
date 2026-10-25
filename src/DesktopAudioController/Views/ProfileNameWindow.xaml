@@ -1,7 +1,8 @@
 <Window x:Class="DesktopAudioController.Views.ProfileNameWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="프로필 만들기"
+        xmlns:loc="clr-namespace:DesktopAudioController.Localization"
+        Title="{loc:Loc '프로필 만들기'}"
         Width="380"
         SizeToContent="Height"
         ResizeMode="NoResize"
@@ -13,20 +14,20 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <TextBlock Text="현재 장치 표시와 프로그램 저장값을 새 프로필로 저장합니다."
+        <TextBlock Text="{loc:Loc '현재 장치 표시와 프로그램 저장값을 새 프로필로 저장합니다.'}"
                    TextWrapping="Wrap" />
 
         <StackPanel Grid.Row="1"
                     Margin="0,12,0,0">
             <TextBlock FontWeight="SemiBold"
-                       Text="프로필 이름" />
+                       Text="{loc:Loc '프로필 이름'}" />
             <TextBox x:Name="ProfileNameTextBox"
                      Margin="0,6,0,0"
                      MaxLength="40" />
             <TextBlock Margin="0,6,0,0"
                        FontSize="12"
                        Foreground="#666"
-                       Text="예: 게임, 작업, 방송" />
+                       Text="{loc:Loc '예: 게임, 작업, 방송'}" />
         </StackPanel>
 
         <StackPanel Grid.Row="2"
@@ -36,10 +37,10 @@
             <Button Margin="0,0,8,0"
                     Padding="10,4"
                     Click="CancelButton_OnClick"
-                    Content="취소" />
+                    Content="{loc:Loc '취소'}" />
             <Button Padding="10,4"
                     Click="SaveButton_OnClick"
-                    Content="저장" />
+                    Content="{loc:Loc '저장'}" />
         </StackPanel>
     </Grid>
 </Window>

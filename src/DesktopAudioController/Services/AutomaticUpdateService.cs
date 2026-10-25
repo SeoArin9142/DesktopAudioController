@@ -4,6 +4,7 @@ using System.IO;
 using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text.RegularExpressions;
+using DesktopAudioController.Localization;
 
 namespace DesktopAudioController.Services;
 
@@ -44,28 +45,28 @@ public sealed class AutomaticUpdateService
     {
         if (string.IsNullOrWhiteSpace(updateCheckResult.DownloadUrl))
         {
-            return AutomaticUpdateStartResult.Fail("자동 업데이트에 필요한 zip 다운로드 URL이 없습니다.");
+            return AutomaticUpdateStartResult.Fail(Loc.T("자동 업데이트에 필요한 zip 다운로드 URL이 없습니다."));
         }
 
         if (string.IsNullOrWhiteSpace(updateCheckResult.ChecksumDownloadUrl))
         {
-            return AutomaticUpdateStartResult.Fail("자동 업데이트에 필요한 sha256 파일이 없습니다.");
+            return AutomaticUpdateStartResult.Fail(Loc.T("자동 업데이트에 필요한 sha256 파일이 없습니다."));
         }
 
         if (string.IsNullOrWhiteSpace(applicationDirectory) || !Directory.Exists(applicationDirectory))
         {
-            return AutomaticUpdateStartResult.Fail("현재 실행 폴더를 찾지 못했습니다.");
+            return AutomaticUpdateStartResult.Fail(Loc.T("현재 실행 폴더를 찾지 못했습니다."));
         }
 
         if (string.IsNullOrWhiteSpace(applicationExecutablePath) || !File.Exists(applicationExecutablePath))
         {
-            return AutomaticUpdateStartResult.Fail("현재 실행 파일 경로를 찾지 못했습니다.");
+            return AutomaticUpdateStartResult.Fail(Loc.T("현재 실행 파일 경로를 찾지 못했습니다."));
         }
 
         var sourceUpdaterPath = Path.Combine(applicationDirectory, UpdaterExecutableName);
         if (!File.Exists(sourceUpdaterPath))
         {
-            return AutomaticUpdateStartResult.Fail($"{UpdaterExecutableName} 파일이 없습니다. 이번 버전은 수동 업데이트가 필요합니다.");
+            return AutomaticUpdateStartResult.Fail(Loc.F("{0} 파일이 없습니다. 이번 버전은 수동 업데이트가 필요합니다.", UpdaterExecutableName));
         }
 
         var updateWorkDirectory = BuildUpdateWorkDirectory();
@@ -77,13 +78,13 @@ public sealed class AutomaticUpdateService
 
         try
         {
-            progressChanged?.Invoke("업데이트 파일 다운로드 중...");
+            progressChanged?.Invoke(Loc.T("업데이트 파일 다운로드 중..."));
             AppLog.Info("AutomaticUpdate", $"업데이트 패키지 다운로드 시작 version={updateCheckResult.LatestVersion}");
             await DownloadFileAsync(updateCheckResult.DownloadUrl, packagePath, cancellationToken);
 
             await RunProgressStepAsync(
                 progressChanged,
-                "체크섬 다운로드 중...",
+                Loc.T("체크섬 다운로드 중..."),
                 ChecksumProgressMinimumDuration,
                 () => DownloadFileAsync(updateCheckResult.ChecksumDownloadUrl, checksumPath, cancellationToken),
                 cancellationToken);
@@ -92,7 +93,7 @@ public sealed class AutomaticUpdateService
             string actualHash = string.Empty;
             await RunProgressStepAsync(
                 progressChanged,
-                "업데이트 파일 검증 중...",
+                Loc.T("업데이트 파일 검증 중..."),
                 VerificationProgressMinimumDuration,
                 async () =>
                 {
@@ -103,20 +104,20 @@ public sealed class AutomaticUpdateService
 
             if (!TryParseSha256Hash(checksumText, out var expectedHash))
             {
-                return AutomaticUpdateStartResult.Fail("sha256 파일에서 체크섬을 읽지 못했습니다.");
+                return AutomaticUpdateStartResult.Fail(Loc.T("sha256 파일에서 체크섬을 읽지 못했습니다."));
             }
 
             if (!string.Equals(expectedHash, actualHash, StringComparison.OrdinalIgnoreCase))
             {
                 AppLog.Warn("AutomaticUpdate", $"업데이트 패키지 sha256 불일치 expected={expectedHash} actual={actualHash}");
-                return AutomaticUpdateStartResult.Fail("다운로드한 업데이트 파일의 sha256 검증에 실패했습니다.");
+                return AutomaticUpdateStartResult.Fail(Loc.T("다운로드한 업데이트 파일의 sha256 검증에 실패했습니다."));
             }
 
             // updater도 현재 실행 폴더에서 직접 실행하지 않고 임시 폴더로 복사해 실행합니다.
             // 그래야 updater 자신이 새 zip 안의 updater.exe로 교체되는 상황에서도 파일 잠금 충돌을 피할 수 있습니다.
             await RunProgressStepAsync(
                 progressChanged,
-                "업데이트 적용 준비 중...",
+                Loc.T("업데이트 적용 준비 중..."),
                 ApplyPreparationProgressMinimumDuration,
                 () =>
                 {
@@ -250,7 +251,7 @@ public sealed class AutomaticUpdateService
         }
 
         _ = Process.Start(startInfo)
-            ?? throw new InvalidOperationException("업데이트 적용 프로세스를 시작하지 못했습니다.");
+            ?? throw new InvalidOperationException(Loc.T("업데이트 적용 프로세스를 시작하지 못했습니다."));
     }
 
     private static HttpClient CreateHttpClient()

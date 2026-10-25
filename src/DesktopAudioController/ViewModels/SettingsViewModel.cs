@@ -5,6 +5,7 @@ using System.Threading;
 using DesktopAudioController.Infrastructure;
 using DesktopAudioController.Models;
 using DesktopAudioController.Services;
+using DesktopAudioController.Localization;
 
 namespace DesktopAudioController.ViewModels;
 
@@ -102,6 +103,9 @@ public sealed class SettingsViewModel : ObservableObject
     // 기본 프로필 ID의 내부 필드입니다.
     private string _autoProfileFallbackProfileId = string.Empty;
 
+    // 화면 언어 설정의 내부 필드입니다. 비어 있으면 Windows 표시 언어를 따릅니다.
+    private string _uiLanguage = string.Empty;
+
     /// <summary>
     /// 설정 창에서 사용할 서비스들을 주입받습니다.
     /// </summary>
@@ -162,9 +166,9 @@ public sealed class SettingsViewModel : ObservableObject
     /// </summary>
     public IReadOnlyList<MuteOptionViewModel> MuteOptions { get; } =
     [
-        new(0, "음소거 그대로"),
-        new(1, "음소거"),
-        new(2, "음소거 해제")
+        new(0, Loc.T("음소거 그대로")),
+        new(1, Loc.T("음소거")),
+        new(2, Loc.T("음소거 해제"))
     ];
 
     /// <summary>
@@ -216,9 +220,9 @@ public sealed class SettingsViewModel : ObservableObject
     /// </summary>
     public IReadOnlyList<RestoreModeOptionViewModel> RestoreModeOptions { get; } =
     [
-        new(AutoProfileRestoreMode.PreviousProfile, "이전 프로필로"),
-        new(AutoProfileRestoreMode.FallbackProfile, "기본 프로필로"),
-        new(AutoProfileRestoreMode.KeepCurrent, "그대로 두기")
+        new(AutoProfileRestoreMode.PreviousProfile, Loc.T("이전 프로필로")),
+        new(AutoProfileRestoreMode.FallbackProfile, Loc.T("기본 프로필로")),
+        new(AutoProfileRestoreMode.KeepCurrent, Loc.T("그대로 두기"))
     ];
 
     /// <summary>
@@ -283,6 +287,25 @@ public sealed class SettingsViewModel : ObservableObject
     {
         get => _autoProfileFallbackProfileId;
         set => SetProperty(ref _autoProfileFallbackProfileId, value ?? string.Empty);
+    }
+
+    /// <summary>
+    /// 언어 선택지입니다. 언어 이름은 어느 언어 화면에서도 알아볼 수 있게 각 언어로 적습니다.
+    /// </summary>
+    public IReadOnlyList<LanguageOptionViewModel> LanguageOptions { get; } =
+    [
+        new(Loc.AutoLanguage, "Auto (Windows) / 자동"),
+        new(Loc.KoreanLanguage, "한국어"),
+        new(Loc.EnglishLanguage, "English")
+    ];
+
+    /// <summary>
+    /// 화면 언어 설정입니다. 저장하면 앱을 다시 켜지 않고 바로 바뀝니다.
+    /// </summary>
+    public string UiLanguage
+    {
+        get => _uiLanguage;
+        set => SetProperty(ref _uiLanguage, value ?? string.Empty);
     }
 
     /// <summary>
@@ -454,6 +477,9 @@ public sealed class SettingsViewModel : ObservableObject
         _settingsService.Save(savePlan.Settings);
         _startupLaunchService.Apply(RunAtWindowsStartup);
         AppLog.ConfigureDebugLogging(EnableDebugLogs);
+
+        // 언어는 저장하는 즉시 바뀝니다. 화면 문구는 언어 변경 알림으로 다시 그려집니다.
+        Loc.Configure(savePlan.Settings.UiLanguage);
         RequiresRestartToEnableDebugLogs = savePlan.RequiresRestartToEnableDebugLogs;
         _loadedEnableDebugLogs = EnableDebugLogs;
         OnPropertyChanged(nameof(ShowsDebugLogRestartWarning));
@@ -520,12 +546,12 @@ public sealed class SettingsViewModel : ObservableObject
     {
         if (SelectedAudioProfile is null)
         {
-            throw new InvalidOperationException("적용할 프로필이 선택되지 않았습니다.");
+            throw new InvalidOperationException(Loc.T("적용할 프로필이 선택되지 않았습니다."));
         }
 
         var persistedSettings = _settingsService.Load();
         var profile = persistedSettings.AudioProfiles.FirstOrDefault(item => item.Id == SelectedAudioProfile.Id)
-            ?? throw new InvalidOperationException("선택한 프로필을 설정 파일에서 찾지 못했습니다.");
+            ?? throw new InvalidOperationException(Loc.T("선택한 프로필을 설정 파일에서 찾지 못했습니다."));
         var currentUiSettings = BuildSavePlan(persistedSettings).Settings;
 
         // 저장 전 편집 값(기본 장치·앱별 출력)도 함께 적용되도록 편집 중인 프로필 값을 씁니다.
@@ -545,7 +571,7 @@ public sealed class SettingsViewModel : ObservableObject
     {
         if (SelectedAudioProfile is null)
         {
-            throw new InvalidOperationException("삭제할 프로필이 선택되지 않았습니다.");
+            throw new InvalidOperationException(Loc.T("삭제할 프로필이 선택되지 않았습니다."));
         }
 
         var deletedProfileId = SelectedAudioProfile.Id;
@@ -553,7 +579,7 @@ public sealed class SettingsViewModel : ObservableObject
         var removedCount = currentSettings.AudioProfiles.RemoveAll(profile => profile.Id == deletedProfileId);
         if (removedCount == 0)
         {
-            throw new InvalidOperationException("선택한 프로필을 설정 파일에서 찾지 못했습니다.");
+            throw new InvalidOperationException(Loc.T("선택한 프로필을 설정 파일에서 찾지 못했습니다."));
         }
 
         if (string.Equals(currentSettings.LastAppliedAudioProfileId, deletedProfileId, StringComparison.Ordinal))
@@ -643,6 +669,7 @@ public sealed class SettingsViewModel : ObservableObject
             }
         }
 
+        UiLanguage = snapshot.Settings.UiLanguage;
         AutoProfileSwitchEnabled = snapshot.Settings.AutoProfileSwitchEnabled;
         ShowAutoProfileNotifications = snapshot.Settings.ShowAutoProfileNotifications;
         EnableProfileHotkeys = snapshot.Settings.EnableProfileHotkeys;
@@ -714,6 +741,7 @@ public sealed class SettingsViewModel : ObservableObject
             profile.KnownDeviceNames = ProfileDeviceResolver.BuildKnownNames(profile, knownDevices);
         }
 
+        settings.UiLanguage = UiLanguage;
         settings.AutoProfileSwitchEnabled = AutoProfileSwitchEnabled;
         settings.ShowAutoProfileNotifications = ShowAutoProfileNotifications;
         settings.EnableProfileHotkeys = EnableProfileHotkeys;
@@ -848,7 +876,7 @@ public sealed class SettingsViewModel : ObservableObject
             {
                 if (!int.TryParse(volumeText, out var parsedVolume) || parsedVolume is < 0 or > 100)
                 {
-                    problems.Add($"프로필 '{profileName}' 장치 볼륨 '{row.VolumeText}': 0~100 사이 숫자로 적거나 비워 두세요.");
+                    problems.Add(Loc.F("프로필 '{0}' 장치 볼륨 '{1}': 0~100 사이 숫자로 적거나 비워 두세요.", profileName, row.VolumeText));
                     continue;
                 }
 
@@ -999,14 +1027,14 @@ public sealed class SettingsViewModel : ObservableObject
         LevelDeviceOptions.Clear();
         InputDeviceOptions.Clear();
         InputFallbackOptions.Clear();
-        DefaultDeviceOptions.Add(new DeviceOptionViewModel(string.Empty, "(바꾸지 않음)"));
-        RouteDeviceOptions.Add(new DeviceOptionViewModel(string.Empty, "Windows 기본 장치 따름"));
-        OutputFallbackOptions.Add(new DeviceOptionViewModel(string.Empty, "(없음)"));
-        InputDeviceOptions.Add(new DeviceOptionViewModel(string.Empty, "(바꾸지 않음)"));
-        InputFallbackOptions.Add(new DeviceOptionViewModel(string.Empty, "(없음)"));
+        DefaultDeviceOptions.Add(new DeviceOptionViewModel(string.Empty, Loc.T("(바꾸지 않음)")));
+        RouteDeviceOptions.Add(new DeviceOptionViewModel(string.Empty, Loc.T("Windows 기본 장치 따름")));
+        OutputFallbackOptions.Add(new DeviceOptionViewModel(string.Empty, Loc.T("(없음)")));
+        InputDeviceOptions.Add(new DeviceOptionViewModel(string.Empty, Loc.T("(바꾸지 않음)")));
+        InputFallbackOptions.Add(new DeviceOptionViewModel(string.Empty, Loc.T("(없음)")));
         foreach (var device in devices.OrderBy(device => device.Name, StringComparer.CurrentCultureIgnoreCase))
         {
-            var name = device.IsConnected ? device.Name : $"{device.Name} (연결 안 됨)";
+            var name = device.IsConnected ? device.Name : Loc.F("{0} (연결 안 됨)", device.Name);
             DefaultDeviceOptions.Add(new DeviceOptionViewModel(device.Id, name));
             RouteDeviceOptions.Add(new DeviceOptionViewModel(device.Id, name));
             OutputFallbackOptions.Add(new DeviceOptionViewModel(device.Id, name));
@@ -1015,7 +1043,7 @@ public sealed class SettingsViewModel : ObservableObject
 
         foreach (var device in _inputDevices.OrderBy(device => device.Name, StringComparer.CurrentCultureIgnoreCase))
         {
-            var name = device.IsConnected ? device.Name : $"{device.Name} (연결 안 됨)";
+            var name = device.IsConnected ? device.Name : Loc.F("{0} (연결 안 됨)", device.Name);
             InputDeviceOptions.Add(new DeviceOptionViewModel(device.Id, name));
             InputFallbackOptions.Add(new DeviceOptionViewModel(device.Id, name));
         }
@@ -1031,7 +1059,7 @@ public sealed class SettingsViewModel : ObservableObject
             return;
         }
 
-        options.Add(new DeviceOptionViewModel(deviceId, "(현재 없는 장치)"));
+        options.Add(new DeviceOptionViewModel(deviceId, Loc.T("(현재 없는 장치)")));
     }
 
     private IReadOnlyList<AudioDeviceInfo> ReadInputDevices()
@@ -1089,6 +1117,7 @@ public sealed class SettingsViewModel : ObservableObject
         _settingsService.Save(settings);
         _startupLaunchService.Apply(settings.RunAtWindowsStartup);
         AppLog.ConfigureDebugLogging(settings.EnableDebugLogs);
+        Loc.Configure(settings.UiLanguage);
 
         ApplySnapshot(new SettingsSnapshot
         {
@@ -1128,7 +1157,7 @@ public sealed class SettingsViewModel : ObservableObject
         }
 
         FallbackProfileOptions.Clear();
-        FallbackProfileOptions.Add(new AudioProfileSelectionViewModel(string.Empty, "(지정 안 함)"));
+        FallbackProfileOptions.Add(new AudioProfileSelectionViewModel(string.Empty, Loc.T("(지정 안 함)")));
         foreach (var profile in AudioProfiles)
         {
             FallbackProfileOptions.Add(profile);

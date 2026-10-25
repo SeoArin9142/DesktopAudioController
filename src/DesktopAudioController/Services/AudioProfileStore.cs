@@ -1,4 +1,5 @@
 using DesktopAudioController.Models;
+using DesktopAudioController.Localization;
 
 namespace DesktopAudioController.Services;
 
@@ -12,7 +13,7 @@ internal static class AudioProfileStore
         var normalizedName = NormalizeProfileName(profileName);
         if (string.IsNullOrWhiteSpace(normalizedName))
         {
-            throw new ArgumentException("프로필 이름은 비워 둘 수 없습니다.", nameof(profileName));
+            throw new ArgumentException(Loc.T("프로필 이름은 비워 둘 수 없습니다."), nameof(profileName));
         }
 
         return new AudioProfile
@@ -47,7 +48,8 @@ internal static class AudioProfileStore
             AutoProfileRules = CloneAutoProfileRules(currentSettings.AutoProfileRules),
             AutoProfileFallbackProfileId = currentSettings.AutoProfileFallbackProfileId,
             ShowAutoProfileNotifications = currentSettings.ShowAutoProfileNotifications,
-            EnableProfileHotkeys = currentSettings.EnableProfileHotkeys
+            EnableProfileHotkeys = currentSettings.EnableProfileHotkeys,
+            UiLanguage = currentSettings.UiLanguage
         };
     }
 
@@ -163,6 +165,7 @@ internal static class AudioProfileStore
         destination.AutoProfileFallbackProfileId = source.AutoProfileFallbackProfileId;
         destination.ShowAutoProfileNotifications = source.ShowAutoProfileNotifications;
         destination.EnableProfileHotkeys = source.EnableProfileHotkeys;
+        destination.UiLanguage = source.UiLanguage;
     }
 
     public static List<ProgramAudioPreference> CloneProgramAudioPreferences(IEnumerable<ProgramAudioPreference> preferences)
@@ -194,7 +197,7 @@ internal static class AudioProfileStore
         var baseName = NormalizeProfileName(requestedName);
         if (string.IsNullOrWhiteSpace(baseName))
         {
-            throw new ArgumentException("프로필 이름은 비워 둘 수 없습니다.", nameof(requestedName));
+            throw new ArgumentException(Loc.T("프로필 이름은 비워 둘 수 없습니다."), nameof(requestedName));
         }
 
         var existingNames = existingProfiles

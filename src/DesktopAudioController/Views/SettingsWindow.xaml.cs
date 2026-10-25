@@ -3,6 +3,7 @@ using System.IO;
 using System.Windows;
 using DesktopAudioController.Services;
 using DesktopAudioController.ViewModels;
+using DesktopAudioController.Localization;
 
 namespace DesktopAudioController.Views;
 
@@ -64,8 +65,8 @@ public partial class SettingsWindow : Window
                 AppLog.Warn("SettingsWindow", "디버그 로그 활성화 재시작 예약 실패");
                 System.Windows.MessageBox.Show(
                     this,
-                    "디버그 로그 설정은 저장됐지만 자동 재시작을 예약하지 못했습니다.\n처음부터 디버그 로그를 기록하려면 앱을 직접 다시 시작해 주세요.",
-                    "디버그 로그 재시작 실패",
+                    Loc.T("디버그 로그 설정은 저장됐지만 자동 재시작을 예약하지 못했습니다.\n처음부터 디버그 로그를 기록하려면 앱을 직접 다시 시작해 주세요."),
+                    Loc.T("디버그 로그 재시작 실패"),
                     MessageBoxButton.OK,
                     MessageBoxImage.Warning);
             }
@@ -78,8 +79,8 @@ public partial class SettingsWindow : Window
             AppLog.Info("SettingsWindow", $"설정 저장 보류: 입력 확인 필요 problems={exception.Problems.Count}");
             System.Windows.MessageBox.Show(
                 this,
-                $"저장하기 전에 아래 항목을 확인해 주세요.\n\n- {string.Join("\n- ", exception.Problems)}",
-                "설정 확인 필요",
+                Loc.F("저장하기 전에 아래 항목을 확인해 주세요.\n\n- {0}", string.Join("\n- ", exception.Problems)),
+                Loc.T("설정 확인 필요"),
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);
         }
@@ -88,8 +89,8 @@ public partial class SettingsWindow : Window
             AppLog.Error("SettingsWindow", "설정 파일 저장 실패", exception);
             System.Windows.MessageBox.Show(
                 this,
-                $"설정을 파일에 저장하지 못했습니다.\n\n저장 경로: {exception.SettingsFilePath}\n원인: {exception.InnerException?.Message ?? exception.Message}\n\n경로 접근 권한과 디스크 상태를 확인한 뒤 다시 시도하세요.",
-                "설정 저장 실패",
+                Loc.F("설정을 파일에 저장하지 못했습니다.\n\n저장 경로: {0}\n원인: {1}\n\n경로 접근 권한과 디스크 상태를 확인한 뒤 다시 시도하세요.", exception.SettingsFilePath, exception.InnerException?.Message ?? exception.Message),
+                Loc.T("설정 저장 실패"),
                 MessageBoxButton.OK,
                 MessageBoxImage.Warning);
         }
@@ -98,8 +99,8 @@ public partial class SettingsWindow : Window
             AppLog.Error("SettingsWindow", "자동 실행 레지스트리 반영 실패", exception);
             System.Windows.MessageBox.Show(
                 this,
-                $"Windows 자동 실행 옵션을 적용하지 못했습니다.\n\n레지스트리 경로: {exception.RegistryPath}\n값 이름: {exception.ValueName}\n원인: {exception.InnerException?.Message ?? exception.Message}\n\n자동 실행을 끈 상태로 먼저 사용한 뒤 나중에 다시 시도해도 됩니다.",
-                "자동 실행 설정 실패",
+                Loc.F("Windows 자동 실행 옵션을 적용하지 못했습니다.\n\n레지스트리 경로: {0}\n값 이름: {1}\n원인: {2}\n\n자동 실행을 끈 상태로 먼저 사용한 뒤 나중에 다시 시도해도 됩니다.", exception.RegistryPath, exception.ValueName, exception.InnerException?.Message ?? exception.Message),
+                Loc.T("자동 실행 설정 실패"),
                 MessageBoxButton.OK,
                 MessageBoxImage.Warning);
         }
@@ -108,8 +109,8 @@ public partial class SettingsWindow : Window
             AppLog.Error("SettingsWindow", "설정 저장 중 예상하지 못한 오류", exception);
             System.Windows.MessageBox.Show(
                 this,
-                $"설정을 저장하는 중 예상하지 못한 오류가 발생했습니다.\n\n원인: {exception.Message}\n\n같은 문제가 반복되면 settings.json 경로와 로그를 함께 확인하세요.",
-                "설정 저장 실패",
+                Loc.F("설정을 저장하는 중 예상하지 못한 오류가 발생했습니다.\n\n원인: {0}\n\n같은 문제가 반복되면 settings.json 경로와 로그를 함께 확인하세요.", exception.Message),
+                Loc.T("설정 저장 실패"),
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
         }
@@ -137,8 +138,8 @@ public partial class SettingsWindow : Window
     {
         var dialog = new Microsoft.Win32.SaveFileDialog
         {
-            Title = "설정 내보내기",
-            Filter = "JSON 설정 파일 (*.json)|*.json|모든 파일 (*.*)|*.*",
+            Title = Loc.T("설정 내보내기"),
+            Filter = Loc.T("JSON 설정 파일 (*.json)|*.json|모든 파일 (*.*)|*.*"),
             FileName = $"DesktopAudioController-settings-{DateTime.Now:yyyyMMdd-HHmmss}.json",
             AddExtension = true,
             DefaultExt = ".json",
@@ -156,24 +157,24 @@ public partial class SettingsWindow : Window
             AppLog.Info("SettingsWindow", "설정 내보내기 성공");
             System.Windows.MessageBox.Show(
                 this,
-                $"설정을 파일로 내보냈습니다.\n\n경로: {dialog.FileName}",
-                "설정 내보내기 완료",
+                Loc.F("설정을 파일로 내보냈습니다.\n\n경로: {0}", dialog.FileName),
+                Loc.T("설정 내보내기 완료"),
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);
         }
         catch (SettingsPersistenceException exception)
         {
-            ShowSettingsPersistenceFailure("설정 내보내기 실패", exception);
+            ShowSettingsPersistenceFailure(Loc.T("설정 내보내기 실패"), exception);
         }
         catch (Exception exception)
         {
-            ShowUnexpectedSettingsFailure("설정 내보내기 실패", exception);
+            ShowUnexpectedSettingsFailure(Loc.T("설정 내보내기 실패"), exception);
         }
     }
 
     private void ExportDiagnosticPackageButton_OnClick(object sender, RoutedEventArgs e)
     {
-        var dialog = CreateDiagnosticPackageSaveDialog("진단 패키지 내보내기");
+        var dialog = CreateDiagnosticPackageSaveDialog(Loc.T("진단 패키지 내보내기"));
 
         if (dialog.ShowDialog(this) != true)
         {
@@ -186,8 +187,8 @@ public partial class SettingsWindow : Window
             AppLog.Info("SettingsWindow", $"진단 패키지 내보내기 성공 path={packagePath}");
             System.Windows.MessageBox.Show(
                 this,
-                $"진단 패키지를 생성했습니다.\n\n경로: {packagePath}",
-                "진단 패키지 내보내기 완료",
+                Loc.F("진단 패키지를 생성했습니다.\n\n경로: {0}", packagePath),
+                Loc.T("진단 패키지 내보내기 완료"),
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);
         }
@@ -196,8 +197,8 @@ public partial class SettingsWindow : Window
             AppLog.Error("SettingsWindow", "진단 패키지 내보내기 실패", exception);
             System.Windows.MessageBox.Show(
                 this,
-                $"진단 패키지를 만들지 못했습니다.\n\n원인: {exception.Message}",
-                "진단 패키지 내보내기 실패",
+                Loc.F("진단 패키지를 만들지 못했습니다.\n\n원인: {0}", exception.Message),
+                Loc.T("진단 패키지 내보내기 실패"),
                 MessageBoxButton.OK,
                 MessageBoxImage.Warning);
         }
@@ -205,7 +206,7 @@ public partial class SettingsWindow : Window
 
     private void ExportDiagnosticIssueDraftButton_OnClick(object sender, RoutedEventArgs e)
     {
-        var dialog = CreateDiagnosticPackageSaveDialog("진단 패키지 및 이슈 작성");
+        var dialog = CreateDiagnosticPackageSaveDialog(Loc.T("진단 패키지 및 이슈 작성"));
 
         if (dialog.ShowDialog(this) != true)
         {
@@ -223,19 +224,19 @@ public partial class SettingsWindow : Window
                 $"진단 이슈 초안 생성 성공 packagePath={draft.DiagnosticPackagePath} issuePageOpened={openedIssuePage} folderOpened={openedPackageFolder} clipboardCopied={copiedToClipboard}");
 
             var clipboardText = copiedToClipboard
-                ? "이슈 본문도 클립보드에 복사했습니다."
-                : "클립보드 복사는 실패했습니다. 열린 이슈 화면의 본문을 확인해 주세요.";
+                ? Loc.T("이슈 본문도 클립보드에 복사했습니다.")
+                : Loc.T("클립보드 복사는 실패했습니다. 열린 이슈 화면의 본문을 확인해 주세요.");
             var issuePageText = openedIssuePage
-                ? "GitHub 이슈 작성 화면을 열었습니다."
-                : "GitHub 이슈 작성 화면을 열지 못했습니다.";
+                ? Loc.T("GitHub 이슈 작성 화면을 열었습니다.")
+                : Loc.T("GitHub 이슈 작성 화면을 열지 못했습니다.");
             var folderText = openedPackageFolder
-                ? "진단 패키지 위치도 열었습니다."
-                : $"진단 패키지 경로: {draft.DiagnosticPackagePath}";
+                ? Loc.T("진단 패키지 위치도 열었습니다.")
+                : Loc.F("진단 패키지 경로: {0}", draft.DiagnosticPackagePath);
 
             System.Windows.MessageBox.Show(
                 this,
-                $"진단 패키지와 이슈 초안을 만들었습니다.\n\n{issuePageText}\n{clipboardText}\n{folderText}\n\n공개 전 zip 내용과 이슈 본문을 확인한 뒤 직접 제출/첨부해 주세요.",
-                "진단 이슈 초안 생성 완료",
+                Loc.F("진단 패키지와 이슈 초안을 만들었습니다.\n\n{0}\n{1}\n{2}\n\n공개 전 zip 내용과 이슈 본문을 확인한 뒤 직접 제출/첨부해 주세요.", issuePageText, clipboardText, folderText),
+                Loc.T("진단 이슈 초안 생성 완료"),
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);
         }
@@ -244,8 +245,8 @@ public partial class SettingsWindow : Window
             AppLog.Error("SettingsWindow", "진단 이슈 초안 생성 실패", exception);
             System.Windows.MessageBox.Show(
                 this,
-                $"진단 이슈 초안을 만들지 못했습니다.\n\n원인: {exception.Message}",
-                "진단 이슈 초안 생성 실패",
+                Loc.F("진단 이슈 초안을 만들지 못했습니다.\n\n원인: {0}", exception.Message),
+                Loc.T("진단 이슈 초안 생성 실패"),
                 MessageBoxButton.OK,
                 MessageBoxImage.Warning);
         }
@@ -256,7 +257,7 @@ public partial class SettingsWindow : Window
         return new Microsoft.Win32.SaveFileDialog
         {
             Title = title,
-            Filter = "ZIP 진단 패키지 (*.zip)|*.zip|모든 파일 (*.*)|*.*",
+            Filter = Loc.T("ZIP 진단 패키지 (*.zip)|*.zip|모든 파일 (*.*)|*.*"),
             FileName = $"DesktopAudioController-diagnostics-{DateTime.Now:yyyyMMdd-HHmmss}.zip",
             AddExtension = true,
             DefaultExt = ".zip",
@@ -316,8 +317,8 @@ public partial class SettingsWindow : Window
     {
         var dialog = new Microsoft.Win32.OpenFileDialog
         {
-            Title = "설정 가져오기",
-            Filter = "JSON 설정 파일 (*.json)|*.json|모든 파일 (*.*)|*.*",
+            Title = Loc.T("설정 가져오기"),
+            Filter = Loc.T("JSON 설정 파일 (*.json)|*.json|모든 파일 (*.*)|*.*"),
             CheckFileExists = true,
             Multiselect = false
         };
@@ -329,8 +330,8 @@ public partial class SettingsWindow : Window
 
         var confirmation = System.Windows.MessageBox.Show(
             this,
-            "선택한 파일의 설정으로 현재 설정을 덮어씁니다.\n\n계속할까요?",
-            "설정 가져오기",
+            Loc.T("선택한 파일의 설정으로 현재 설정을 덮어씁니다.\n\n계속할까요?"),
+            Loc.T("설정 가져오기"),
             MessageBoxButton.YesNo,
             MessageBoxImage.Question);
         if (confirmation != MessageBoxResult.Yes)
@@ -342,11 +343,11 @@ public partial class SettingsWindow : Window
         {
             _viewModel.ImportSettings(dialog.FileName);
             AppLog.Info("SettingsWindow", "설정 가져오기 성공");
-            CompleteAppliedSettingsChange("설정 가져오기 완료", "설정을 가져와 적용했습니다.");
+            CompleteAppliedSettingsChange(Loc.T("설정 가져오기 완료"), Loc.T("설정을 가져와 적용했습니다."));
         }
         catch (SettingsPersistenceException exception)
         {
-            ShowSettingsPersistenceFailure("설정 가져오기 실패", exception);
+            ShowSettingsPersistenceFailure(Loc.T("설정 가져오기 실패"), exception);
         }
         catch (StartupRegistrationException exception)
         {
@@ -354,7 +355,7 @@ public partial class SettingsWindow : Window
         }
         catch (Exception exception)
         {
-            ShowUnexpectedSettingsFailure("설정 가져오기 실패", exception);
+            ShowUnexpectedSettingsFailure(Loc.T("설정 가져오기 실패"), exception);
         }
     }
 
@@ -377,18 +378,18 @@ public partial class SettingsWindow : Window
             AppLog.Info("SettingsWindow", "수동 프로필 생성 성공");
             System.Windows.MessageBox.Show(
                 this,
-                "현재 설정창 상태를 새 프로필로 저장했습니다.",
-                "프로필 생성 완료",
+                Loc.T("현재 설정창 상태를 새 프로필로 저장했습니다."),
+                Loc.T("프로필 생성 완료"),
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);
         }
         catch (SettingsPersistenceException exception)
         {
-            ShowSettingsPersistenceFailure("프로필 생성 실패", exception);
+            ShowSettingsPersistenceFailure(Loc.T("프로필 생성 실패"), exception);
         }
         catch (Exception exception)
         {
-            ShowUnexpectedSettingsFailure("프로필 생성 실패", exception);
+            ShowUnexpectedSettingsFailure(Loc.T("프로필 생성 실패"), exception);
         }
     }
 
@@ -396,8 +397,8 @@ public partial class SettingsWindow : Window
     {
         var confirmation = System.Windows.MessageBox.Show(
             this,
-            "선택한 프로필의 장치 표시 설정과 프로그램 저장값을 현재 설정에 적용합니다.\n\n계속할까요?",
-            "프로필 적용",
+            Loc.T("선택한 프로필의 장치 표시 설정과 프로그램 저장값을 현재 설정에 적용합니다.\n\n계속할까요?"),
+            Loc.T("프로필 적용"),
             MessageBoxButton.YesNo,
             MessageBoxImage.Question);
         if (confirmation != MessageBoxResult.Yes)
@@ -409,11 +410,11 @@ public partial class SettingsWindow : Window
         {
             _viewModel.ApplySelectedAudioProfile();
             AppLog.Info("SettingsWindow", "수동 프로필 적용 성공");
-            CompleteAppliedSettingsChange("프로필 적용 완료", "선택한 프로필을 적용했습니다.");
+            CompleteAppliedSettingsChange(Loc.T("프로필 적용 완료"), Loc.T("선택한 프로필을 적용했습니다."));
         }
         catch (SettingsPersistenceException exception)
         {
-            ShowSettingsPersistenceFailure("프로필 적용 실패", exception);
+            ShowSettingsPersistenceFailure(Loc.T("프로필 적용 실패"), exception);
         }
         catch (StartupRegistrationException exception)
         {
@@ -421,7 +422,7 @@ public partial class SettingsWindow : Window
         }
         catch (Exception exception)
         {
-            ShowUnexpectedSettingsFailure("프로필 적용 실패", exception);
+            ShowUnexpectedSettingsFailure(Loc.T("프로필 적용 실패"), exception);
         }
     }
 
@@ -429,8 +430,8 @@ public partial class SettingsWindow : Window
     {
         var confirmation = System.Windows.MessageBox.Show(
             this,
-            "선택한 프로필을 삭제합니다.\n현재 적용된 설정은 바뀌지 않습니다.\n\n계속할까요?",
-            "프로필 삭제",
+            Loc.T("선택한 프로필을 삭제합니다.\n현재 적용된 설정은 바뀌지 않습니다.\n\n계속할까요?"),
+            Loc.T("프로필 삭제"),
             MessageBoxButton.YesNo,
             MessageBoxImage.Warning);
         if (confirmation != MessageBoxResult.Yes)
@@ -445,18 +446,18 @@ public partial class SettingsWindow : Window
             AppLog.Info("SettingsWindow", "수동 프로필 삭제 성공");
             System.Windows.MessageBox.Show(
                 this,
-                "선택한 프로필을 삭제했습니다.",
-                "프로필 삭제 완료",
+                Loc.T("선택한 프로필을 삭제했습니다."),
+                Loc.T("프로필 삭제 완료"),
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);
         }
         catch (SettingsPersistenceException exception)
         {
-            ShowSettingsPersistenceFailure("프로필 삭제 실패", exception);
+            ShowSettingsPersistenceFailure(Loc.T("프로필 삭제 실패"), exception);
         }
         catch (Exception exception)
         {
-            ShowUnexpectedSettingsFailure("프로필 삭제 실패", exception);
+            ShowUnexpectedSettingsFailure(Loc.T("프로필 삭제 실패"), exception);
         }
     }
 
@@ -519,8 +520,8 @@ public partial class SettingsWindow : Window
     {
         var confirmation = System.Windows.MessageBox.Show(
             this,
-            "모든 앱 설정을 기본값으로 초기화합니다.\n프로그램별 볼륨, 음소거, 이름 변경 저장값도 함께 삭제됩니다.\n\n계속할까요?",
-            "설정 초기화",
+            Loc.T("모든 앱 설정을 기본값으로 초기화합니다.\n프로그램별 볼륨, 음소거, 이름 변경 저장값도 함께 삭제됩니다.\n\n계속할까요?"),
+            Loc.T("설정 초기화"),
             MessageBoxButton.YesNo,
             MessageBoxImage.Warning);
         if (confirmation != MessageBoxResult.Yes)
@@ -532,11 +533,11 @@ public partial class SettingsWindow : Window
         {
             _viewModel.ResetSettings();
             AppLog.Info("SettingsWindow", "설정 초기화 성공");
-            CompleteAppliedSettingsChange("설정 초기화 완료", "설정을 기본값으로 초기화했습니다.");
+            CompleteAppliedSettingsChange(Loc.T("설정 초기화 완료"), Loc.T("설정을 기본값으로 초기화했습니다."));
         }
         catch (SettingsPersistenceException exception)
         {
-            ShowSettingsPersistenceFailure("설정 초기화 실패", exception);
+            ShowSettingsPersistenceFailure(Loc.T("설정 초기화 실패"), exception);
         }
         catch (StartupRegistrationException exception)
         {
@@ -544,7 +545,7 @@ public partial class SettingsWindow : Window
         }
         catch (Exception exception)
         {
-            ShowUnexpectedSettingsFailure("설정 초기화 실패", exception);
+            ShowUnexpectedSettingsFailure(Loc.T("설정 초기화 실패"), exception);
         }
     }
 
@@ -552,8 +553,8 @@ public partial class SettingsWindow : Window
     {
         var confirmation = System.Windows.MessageBox.Show(
             this,
-            "프로그램별 볼륨, 음소거, 이름 변경 저장값만 삭제합니다.\n장치 선택과 앱 동작 설정은 유지됩니다.\n\n계속할까요?",
-            "프로그램 저장값 초기화",
+            Loc.T("프로그램별 볼륨, 음소거, 이름 변경 저장값만 삭제합니다.\n장치 선택과 앱 동작 설정은 유지됩니다.\n\n계속할까요?"),
+            Loc.T("프로그램 저장값 초기화"),
             MessageBoxButton.YesNo,
             MessageBoxImage.Warning);
         if (confirmation != MessageBoxResult.Yes)
@@ -565,11 +566,11 @@ public partial class SettingsWindow : Window
         {
             _viewModel.ClearProgramAudioPreferences();
             AppLog.Info("SettingsWindow", "프로그램 저장값 초기화 성공");
-            CompleteAppliedSettingsChange("프로그램 저장값 초기화 완료", "프로그램별 저장값을 초기화했습니다.");
+            CompleteAppliedSettingsChange(Loc.T("프로그램 저장값 초기화 완료"), Loc.T("프로그램별 저장값을 초기화했습니다."));
         }
         catch (SettingsPersistenceException exception)
         {
-            ShowSettingsPersistenceFailure("프로그램 저장값 초기화 실패", exception);
+            ShowSettingsPersistenceFailure(Loc.T("프로그램 저장값 초기화 실패"), exception);
         }
         catch (StartupRegistrationException exception)
         {
@@ -577,7 +578,7 @@ public partial class SettingsWindow : Window
         }
         catch (Exception exception)
         {
-            ShowUnexpectedSettingsFailure("프로그램 저장값 초기화 실패", exception);
+            ShowUnexpectedSettingsFailure(Loc.T("프로그램 저장값 초기화 실패"), exception);
         }
     }
 
@@ -601,8 +602,8 @@ public partial class SettingsWindow : Window
             AppLog.Error("SettingsWindow", "로그 폴더 열기 실패", exception);
             System.Windows.MessageBox.Show(
                 this,
-                "로그 폴더를 열지 못했습니다. 같은 문제가 반복되면 %LocalAppData%\\DesktopAudioController\\logs 경로를 직접 열어 주세요.",
-                "로그 폴더 열기 실패",
+                Loc.T("로그 폴더를 열지 못했습니다. 같은 문제가 반복되면 %LocalAppData%\\DesktopAudioController\\logs 경로를 직접 열어 주세요."),
+                Loc.T("로그 폴더 열기 실패"),
                 MessageBoxButton.OK,
                 MessageBoxImage.Warning);
         }
@@ -621,8 +622,8 @@ public partial class SettingsWindow : Window
             AppLog.Warn("SettingsWindow", "설정 관리 작업 후 디버그 로그 활성화 재시작 예약 실패");
             System.Windows.MessageBox.Show(
                 this,
-                "설정은 적용됐지만 자동 재시작을 예약하지 못했습니다.\n처음부터 디버그 로그를 기록하려면 앱을 직접 다시 시작해 주세요.",
-                "디버그 로그 재시작 실패",
+                Loc.T("설정은 적용됐지만 자동 재시작을 예약하지 못했습니다.\n처음부터 디버그 로그를 기록하려면 앱을 직접 다시 시작해 주세요."),
+                Loc.T("디버그 로그 재시작 실패"),
                 MessageBoxButton.OK,
                 MessageBoxImage.Warning);
         }
@@ -642,7 +643,7 @@ public partial class SettingsWindow : Window
         AppLog.Error("SettingsWindow", title, exception);
         System.Windows.MessageBox.Show(
             this,
-            $"{exception.Message}\n\n경로: {exception.SettingsFilePath}\n원인: {exception.InnerException?.Message ?? exception.Message}",
+            Loc.F("{0}\n\n경로: {1}\n원인: {2}", exception.Message, exception.SettingsFilePath, exception.InnerException?.Message ?? exception.Message),
             title,
             MessageBoxButton.OK,
             MessageBoxImage.Warning);
@@ -653,8 +654,8 @@ public partial class SettingsWindow : Window
         AppLog.Error("SettingsWindow", "자동 실행 레지스트리 반영 실패", exception);
         System.Windows.MessageBox.Show(
             this,
-            $"Windows 자동 실행 옵션을 적용하지 못했습니다.\n\n레지스트리 경로: {exception.RegistryPath}\n값 이름: {exception.ValueName}\n원인: {exception.InnerException?.Message ?? exception.Message}\n\n설정 파일은 변경됐으므로, 필요하면 자동 실행 옵션만 다시 저장해 주세요.",
-            "자동 실행 설정 실패",
+            Loc.F("Windows 자동 실행 옵션을 적용하지 못했습니다.\n\n레지스트리 경로: {0}\n값 이름: {1}\n원인: {2}\n\n설정 파일은 변경됐으므로, 필요하면 자동 실행 옵션만 다시 저장해 주세요.", exception.RegistryPath, exception.ValueName, exception.InnerException?.Message ?? exception.Message),
+            Loc.T("자동 실행 설정 실패"),
             MessageBoxButton.OK,
             MessageBoxImage.Warning);
     }
@@ -664,7 +665,7 @@ public partial class SettingsWindow : Window
         AppLog.Error("SettingsWindow", title, exception);
         System.Windows.MessageBox.Show(
             this,
-            $"설정 관리 작업 중 예상하지 못한 오류가 발생했습니다.\n\n원인: {exception.Message}",
+            Loc.F("설정 관리 작업 중 예상하지 못한 오류가 발생했습니다.\n\n원인: {0}", exception.Message),
             title,
             MessageBoxButton.OK,
             MessageBoxImage.Error);

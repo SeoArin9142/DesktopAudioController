@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Net.Http;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using DesktopAudioController.Localization;
 
 namespace DesktopAudioController.Services;
 
@@ -57,7 +58,7 @@ public sealed class GitHubReleaseUpdateCheckService : IUpdateCheckService
                 return new UpdateCheckResult
                 {
                     HadError = true,
-                    StatusMessage = "업데이트 확인에 실패했습니다."
+                    StatusMessage = Loc.T("업데이트 확인에 실패했습니다.")
                 };
             }
 
@@ -106,7 +107,7 @@ public sealed class GitHubReleaseUpdateCheckService : IUpdateCheckService
             return new UpdateCheckResult
             {
                 HadError = true,
-                StatusMessage = "업데이트 확인에 실패했습니다."
+                StatusMessage = Loc.T("업데이트 확인에 실패했습니다.")
             };
         }
     }

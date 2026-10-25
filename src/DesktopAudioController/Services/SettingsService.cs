@@ -1,6 +1,7 @@
 using System.IO;
 using System.Text.Json;
 using DesktopAudioController.Models;
+using DesktopAudioController.Localization;
 
 namespace DesktopAudioController.Services;
 
@@ -74,7 +75,7 @@ public sealed class SettingsService : ISettingsService
             // 파일 손상이나 읽기 오류가 나도 앱이 죽지 않도록 기본값으로 복구합니다.
             TryBackupCorruptedSettingsFile();
             _pendingLoadWarningMessage =
-                $"설정 파일을 읽지 못해 기본 설정으로 복구했습니다.\n\n원본 경로: {SettingsFilePath}\n백업 경로: {BackupSettingsFilePath}";
+                Loc.F("설정 파일을 읽지 못해 기본 설정으로 복구했습니다.\n\n원본 경로: {0}\n백업 경로: {1}", SettingsFilePath, BackupSettingsFilePath);
             AppLog.Error("SettingsService", $"Load 실패, 기본 설정 복구 path={SettingsFilePath}", exception);
             return new AppSettings();
         }
@@ -97,7 +98,7 @@ public sealed class SettingsService : ISettingsService
             // 저장 실패는 UI에서 사용자에게 안내할 수 있도록 경로와 함께 명시적 예외로 래핑합니다.
             AppLog.Error("SettingsService", $"Save 실패 path={SettingsFilePath}", exception);
             throw new SettingsPersistenceException(
-                "설정 파일을 저장하지 못했습니다.",
+                Loc.T("설정 파일을 저장하지 못했습니다."),
                 SettingsFilePath,
                 exception);
         }
@@ -114,12 +115,12 @@ public sealed class SettingsService : ISettingsService
             ArgumentException.ThrowIfNullOrWhiteSpace(sourceFilePath);
             if (!File.Exists(sourceFilePath))
             {
-                throw new FileNotFoundException("가져올 설정 파일을 찾을 수 없습니다.", sourceFilePath);
+                throw new FileNotFoundException(Loc.T("가져올 설정 파일을 찾을 수 없습니다."), sourceFilePath);
             }
 
             var json = File.ReadAllText(sourceFilePath);
             var importedSettings = JsonSerializer.Deserialize<AppSettings>(json, SerializerOptions)
-                ?? throw new InvalidDataException("설정 파일이 비어 있거나 올바른 설정 JSON이 아닙니다.");
+                ?? throw new InvalidDataException(Loc.T("설정 파일이 비어 있거나 올바른 설정 JSON이 아닙니다."));
 
             importedSettings = NormalizeSettings(importedSettings);
             AppLog.Info(
@@ -131,7 +132,7 @@ public sealed class SettingsService : ISettingsService
         {
             AppLog.Error("SettingsService", $"설정 가져오기 실패 source={sourceFilePath}", exception);
             throw new SettingsPersistenceException(
-                "설정 파일을 가져오지 못했습니다.",
+                Loc.T("설정 파일을 가져오지 못했습니다."),
                 sourceFilePath,
                 exception);
         }
@@ -153,7 +154,7 @@ public sealed class SettingsService : ISettingsService
         {
             AppLog.Error("SettingsService", $"설정 내보내기 실패 destination={destinationFilePath}", exception);
             throw new SettingsPersistenceException(
-                "설정 파일을 내보내지 못했습니다.",
+                Loc.T("설정 파일을 내보내지 못했습니다."),
                 destinationFilePath,
                 exception);
         }
@@ -242,6 +243,12 @@ public sealed class SettingsService : ISettingsService
             settings.LastAppliedAudioProfileId,
             settings.AudioProfiles);
         settings.AutoProfileRules = NormalizeAutoProfileRules(settings.AutoProfileRules);
+        settings.UiLanguage = settings.UiLanguage?.Trim().ToLowerInvariant() switch
+        {
+            Loc.KoreanLanguage => Loc.KoreanLanguage,
+            Loc.EnglishLanguage => Loc.EnglishLanguage,
+            _ => Loc.AutoLanguage
+        };
         settings.AutoProfileFallbackProfileId = NormalizeLastAppliedAudioProfileId(
             settings.AutoProfileFallbackProfileId,
             settings.AudioProfiles);

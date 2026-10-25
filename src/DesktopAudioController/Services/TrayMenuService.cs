@@ -2,6 +2,7 @@ using System.Drawing;
 using System.IO;
 using DesktopAudioController.Models;
 using Forms = System.Windows.Forms;
+using DesktopAudioController.Localization;
 
 namespace DesktopAudioController.Services;
 
@@ -92,8 +93,8 @@ public sealed class TrayMenuService : IDisposable
 
         trayMenu.Items.Add(new Forms.ToolStripMenuItem(
             defaultDevice is null
-                ? "현재 기본 장치: 없음"
-                : $"현재 기본 장치: {defaultDevice.Name}")
+                ? Loc.T("현재 기본 장치: 없음")
+                : Loc.F("현재 기본 장치: {0}", defaultDevice.Name))
         {
             Enabled = false
         });
@@ -104,15 +105,15 @@ public sealed class TrayMenuService : IDisposable
 
         if (state.MinimizeToTray)
         {
-            trayMenu.Items.Add(new Forms.ToolStripMenuItem("닫기 버튼 -> 트레이 최소화")
+            trayMenu.Items.Add(new Forms.ToolStripMenuItem(Loc.T("닫기 버튼 -> 트레이 최소화"))
             {
                 Enabled = false
             });
         }
 
-        trayMenu.Items.Add("창 열기", null, (_, _) => state.OpenMainWindow());
-        trayMenu.Items.Add("설정 열기", null, (_, _) => state.OpenSettings());
-        trayMenu.Items.Add("장치 다시 읽기", null, (_, _) => state.RefreshDevices());
+        trayMenu.Items.Add(Loc.T("창 열기"), null, (_, _) => state.OpenMainWindow());
+        trayMenu.Items.Add(Loc.T("설정 열기"), null, (_, _) => state.OpenSettings());
+        trayMenu.Items.Add(Loc.T("장치 다시 읽기"), null, (_, _) => state.RefreshDevices());
         if (state.AutoProfile is not null)
         {
             trayMenu.Items.Add(new Forms.ToolStripMenuItem(state.AutoProfile.CurrentProfileText)
@@ -124,7 +125,7 @@ public sealed class TrayMenuService : IDisposable
         AddAudioProfileItems(trayMenu, state);
         if (state.AutoProfile is { IsAutoSwitchEnabled: true } autoProfile)
         {
-            var pauseItem = new Forms.ToolStripMenuItem("자동 전환 일시정지")
+            var pauseItem = new Forms.ToolStripMenuItem(Loc.T("자동 전환 일시정지"))
             {
                 Checked = autoProfile.IsAutoSwitchPaused,
                 CheckOnClick = false
@@ -132,15 +133,15 @@ public sealed class TrayMenuService : IDisposable
             pauseItem.Click += (_, _) => autoProfile.ToggleAutoSwitchPause();
             trayMenu.Items.Add(pauseItem);
         }
-        trayMenu.Items.Add("로그 폴더 열기", null, (_, _) => state.OpenLogFolder());
+        trayMenu.Items.Add(Loc.T("로그 폴더 열기"), null, (_, _) => state.OpenLogFolder());
 
         if (state.Devices.Count > 0)
         {
             trayMenu.Items.Add(new Forms.ToolStripSeparator());
         }
 
-        var defaultDeviceMenu = new Forms.ToolStripMenuItem("기본 출력 바꾸기");
-        var muteDeviceMenu = new Forms.ToolStripMenuItem("장치 음소거");
+        var defaultDeviceMenu = new Forms.ToolStripMenuItem(Loc.T("기본 출력 바꾸기"));
+        var muteDeviceMenu = new Forms.ToolStripMenuItem(Loc.T("장치 음소거"));
         foreach (var device in state.Devices)
         {
             var localDevice = device;
@@ -166,7 +167,7 @@ public sealed class TrayMenuService : IDisposable
         trayMenu.Items.Add(defaultDeviceMenu);
         trayMenu.Items.Add(muteDeviceMenu);
         trayMenu.Items.Add(new Forms.ToolStripSeparator());
-        trayMenu.Items.Add("앱 종료", null, (_, _) => state.ExitApplication());
+        trayMenu.Items.Add(Loc.T("앱 종료"), null, (_, _) => state.ExitApplication());
     }
 
     public void InvalidateMenu()
@@ -207,7 +208,7 @@ public sealed class TrayMenuService : IDisposable
     /// </summary>
     private static Forms.ToolStripMenuItem BuildVolumeMenu(Device device)
     {
-        var volumeMenu = new Forms.ToolStripMenuItem($"현재 출력 장치 볼륨: {device.Volume}%{(device.IsMuted ? " (음소거)" : string.Empty)}");
+        var volumeMenu = new Forms.ToolStripMenuItem(Loc.F("현재 출력 장치 볼륨: {0}%{1}", device.Volume, (device.IsMuted ? Loc.T(" (음소거)") : string.Empty)));
         var nearestStep = (int)Math.Round(device.Volume / 10.0, MidpointRounding.AwayFromZero) * 10;
         for (var volume = 100; volume >= 0; volume -= 10)
         {
@@ -231,7 +232,7 @@ public sealed class TrayMenuService : IDisposable
     {
         if (state.Settings.AudioProfiles.Count == 0)
         {
-            trayMenu.Items.Add(new Forms.ToolStripMenuItem("저장한 프로필 없음")
+            trayMenu.Items.Add(new Forms.ToolStripMenuItem(Loc.T("저장한 프로필 없음"))
             {
                 Enabled = false
             });
@@ -262,12 +263,12 @@ public sealed class TrayMenuService : IDisposable
         var lines = new List<string> { "DesktopAudioController" };
         if (!string.IsNullOrWhiteSpace(profileName))
         {
-            lines.Add($"프로필: {TrimNotifyText(profileName)}");
+            lines.Add(Loc.F("프로필: {0}", TrimNotifyText(profileName)));
         }
 
         if (!string.IsNullOrWhiteSpace(defaultDeviceName))
         {
-            lines.Add($"기본: {TrimNotifyText(defaultDeviceName)}");
+            lines.Add(Loc.F("기본: {0}", TrimNotifyText(defaultDeviceName)));
         }
 
         var text = string.Join("\n", lines);
@@ -321,6 +322,6 @@ public sealed class TrayMenuService : IDisposable
 
     private static string BuildDeviceMenuLabel(string deviceName, bool isConnected)
     {
-        return isConnected ? deviceName : $"{deviceName} (연결 안 됨)";
+        return isConnected ? deviceName : Loc.F("{0} (연결 안 됨)", deviceName);
     }
 }

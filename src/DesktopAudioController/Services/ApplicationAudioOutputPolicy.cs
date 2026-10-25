@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using DesktopAudioController.Localization;
 
 namespace DesktopAudioController.Services;
 
@@ -22,12 +23,12 @@ internal static class ApplicationAudioOutputPolicy
     {
         if (processId == 0)
         {
-            throw new ArgumentOutOfRangeException(nameof(processId), "프로세스 ID가 0인 세션은 출력 장치를 변경할 수 없습니다.");
+            throw new ArgumentOutOfRangeException(nameof(processId), Loc.T("프로세스 ID가 0인 세션은 출력 장치를 변경할 수 없습니다."));
         }
 
         if (string.IsNullOrWhiteSpace(targetDeviceId))
         {
-            throw new ArgumentException("대상 출력 장치 ID가 비어 있습니다.", nameof(targetDeviceId));
+            throw new ArgumentException(Loc.T("대상 출력 장치 ID가 비어 있습니다."), nameof(targetDeviceId));
         }
 
         var policyEndpointId = AudioPolicyEndpointId.ToRenderPolicyEndpointId(targetDeviceId);
@@ -50,7 +51,7 @@ internal static class ApplicationAudioOutputPolicy
     {
         if (processId == 0)
         {
-            throw new ArgumentOutOfRangeException(nameof(processId), "프로세스 ID가 0인 세션은 출력 장치를 변경할 수 없습니다.");
+            throw new ArgumentOutOfRangeException(nameof(processId), Loc.T("프로세스 ID가 0인 세션은 출력 장치를 변경할 수 없습니다."));
         }
 
         // 빈 HSTRING(null)을 넘기면 Windows 볼륨 믹서의 "기본값"과 같은 상태로 돌아갑니다.

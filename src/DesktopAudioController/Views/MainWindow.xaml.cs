@@ -14,6 +14,7 @@ using WpfButton = System.Windows.Controls.Button;
 using WpfContextMenu = System.Windows.Controls.ContextMenu;
 using WpfMenuItem = System.Windows.Controls.MenuItem;
 using WpfPlacementMode = System.Windows.Controls.Primitives.PlacementMode;
+using DesktopAudioController.Localization;
 
 namespace DesktopAudioController.Views;
 
@@ -211,15 +212,66 @@ public partial class MainWindow : Window
         DataContext = _viewModel;
         ApplyPrimaryMonitorBounds();
         _audioNotificationService.Changed += AudioNotificationService_OnChanged;
+        Loc.LanguageChanged += Loc_OnLanguageChanged;
         Loaded += MainWindow_OnLoaded;
         StateChanged += MainWindow_OnStateChanged;
         Activated += MainWindow_OnActivationChanged;
         Deactivated += MainWindow_OnActivationChanged;
         IsVisibleChanged += MainWindow_OnIsVisibleChanged;
         Closing += MainWindow_OnClosing;
-        VersionText.Text = $"버전 {GetApplicationVersionText()}";
+        VersionText.Text = Loc.F("버전 {0}", GetApplicationVersionText());
+        UpdateLanguageToggleButton();
         ApplyStartupStatus();
         UpdateEmptyState();
+    }
+
+    /// <summary>
+    /// 언어가 바뀌면 XAML 문구는 바인딩으로 바뀌고, 코드에서 만든 문구(버전·프로필 버튼·트레이 메뉴)는 여기서 다시 그립니다.
+    /// </summary>
+    private void Loc_OnLanguageChanged(object? sender, EventArgs e)
+    {
+        RunOnUiThread(() =>
+        {
+            AppLog.Info("MainWindow", $"화면 언어 변경 english={Loc.IsEnglish}");
+            VersionText.Text = Loc.F("버전 {0}", GetApplicationVersionText());
+            UpdateLanguageToggleButton();
+            _mainProfileBarSignature = null;
+            _trayMenuService.InvalidateMenu();
+            RefreshTrayMenu(force: true);
+        });
+    }
+
+    private void UpdateLanguageToggleButton()
+    {
+        // 지금 언어가 아니라 "바꿀 언어"를 그 언어로 적어, 읽지 못하는 언어 화면에서도 찾을 수 있게 합니다.
+        LanguageToggleButton.Content = Loc.IsEnglish ? "한국어" : "English";
+    }
+
+    /// <summary>
+    /// 메인 화면 언어 버튼입니다. 설정에 저장하고 앱을 다시 켜지 않고 바로 바꿉니다.
+    /// </summary>
+    private void LanguageToggleButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        if (IsSettingsWindowOpenOrOpening())
+        {
+            return;
+        }
+
+        var targetLanguage = Loc.IsEnglish ? Loc.KoreanLanguage : Loc.EnglishLanguage;
+        try
+        {
+            var settings = _settingsService.Load();
+            settings.UiLanguage = targetLanguage;
+            _settingsService.Save(settings);
+            AppLog.Info("MainWindow", $"메인 화면 언어 버튼 language={targetLanguage}");
+        }
+        catch (Exception exception)
+        {
+            // 저장에 실패해도 이번 실행 동안은 바꾼 언어로 보여 줍니다.
+            AppLog.Warn("MainWindow", "언어 설정 저장 실패", exception);
+        }
+
+        Loc.Configure(targetLanguage);
     }
 
     /// <summary>
@@ -277,8 +329,8 @@ public partial class MainWindow : Window
         {
             System.Windows.MessageBox.Show(
                 this,
-                "브라우저에서 릴리즈 페이지를 열지 못했습니다.",
-                "릴리즈 페이지 열기 실패",
+                Loc.T("브라우저에서 릴리즈 페이지를 열지 못했습니다."),
+                Loc.T("릴리즈 페이지 열기 실패"),
                 MessageBoxButton.OK,
                 MessageBoxImage.Warning);
         }
@@ -301,8 +353,8 @@ public partial class MainWindow : Window
             {
                 System.Windows.MessageBox.Show(
                     this,
-                    "브라우저에서 릴리즈 페이지를 열지 못했습니다.",
-                    "릴리즈 페이지 열기 실패",
+                    Loc.T("브라우저에서 릴리즈 페이지를 열지 못했습니다."),
+                    Loc.T("릴리즈 페이지 열기 실패"),
                     MessageBoxButton.OK,
                     MessageBoxImage.Warning);
             }
@@ -316,7 +368,7 @@ public partial class MainWindow : Window
         if (!TryGetCurrentExecutablePath(out var executablePath))
         {
             HandleAutomaticUpdateFailure(
-                "현재 실행 파일 경로를 확인하지 못했습니다.",
+                Loc.T("현재 실행 파일 경로를 확인하지 못했습니다."),
                 targetUrl);
             return;
         }
@@ -325,7 +377,7 @@ public partial class MainWindow : Window
         if (string.IsNullOrWhiteSpace(applicationDirectory))
         {
             HandleAutomaticUpdateFailure(
-                "현재 실행 폴더를 확인하지 못했습니다.",
+                Loc.T("현재 실행 폴더를 확인하지 못했습니다."),
                 targetUrl);
             return;
         }
@@ -333,7 +385,7 @@ public partial class MainWindow : Window
         _isAutomaticUpdateStarting = true;
         UpdateButton.IsEnabled = false;
         CheckUpdateButton.IsEnabled = false;
-        ShowAutomaticUpdateProgress(updateCheckResult.LatestVersion, "업데이트 준비 중...");
+        ShowAutomaticUpdateProgress(updateCheckResult.LatestVersion, Loc.T("업데이트 준비 중..."));
 
         try
         {
@@ -349,13 +401,13 @@ public partial class MainWindow : Window
             if (!startResult.Started)
             {
                 HandleAutomaticUpdateFailure(
-                    startResult.ErrorMessage ?? "자동 업데이트를 시작하지 못했습니다.",
+                    startResult.ErrorMessage ?? Loc.T("자동 업데이트를 시작하지 못했습니다."),
                     targetUrl);
                 return;
             }
 
             AppLog.Info("MainWindow", "자동 업데이트 적용을 위해 앱 종료");
-            ShowAutomaticUpdateProgress(updateCheckResult.LatestVersion, "앱을 다시 시작해 업데이트 적용 중...");
+            ShowAutomaticUpdateProgress(updateCheckResult.LatestVersion, Loc.T("앱을 다시 시작해 업데이트 적용 중..."));
             BeginExitForAutomaticUpdate();
         }
         finally
@@ -428,8 +480,8 @@ public partial class MainWindow : Window
         {
             System.Windows.MessageBox.Show(
                 this,
-                "현재 연결되지 않은 장치는 기본 출력 장치로 설정할 수 없습니다.\n장치를 다시 연결한 뒤 시도하세요.",
-                "장치 연결 필요",
+                Loc.T("현재 연결되지 않은 장치는 기본 출력 장치로 설정할 수 없습니다.\n장치를 다시 연결한 뒤 시도하세요."),
+                Loc.T("장치 연결 필요"),
                 System.Windows.MessageBoxButton.OK,
                 System.Windows.MessageBoxImage.Information);
             return;
@@ -504,8 +556,8 @@ public partial class MainWindow : Window
                 {
                     System.Windows.MessageBox.Show(
                         this,
-                        $"일부 프로필 단축키를 등록하지 못했습니다.\n\n{string.Join("\n", hotkeyFailures)}\n\n다른 프로그램(게임 오버레이, 녹화 프로그램 등)과 겹치지 않는 조합으로 바꿔 주세요.",
-                        "단축키 등록 실패",
+                        Loc.F("일부 프로필 단축키를 등록하지 못했습니다.\n\n{0}\n\n다른 프로그램(게임 오버레이, 녹화 프로그램 등)과 겹치지 않는 조합으로 바꿔 주세요.", string.Join("\n", hotkeyFailures)),
+                        Loc.T("단축키 등록 실패"),
                         System.Windows.MessageBoxButton.OK,
                         System.Windows.MessageBoxImage.Warning);
                 }
@@ -513,7 +565,7 @@ public partial class MainWindow : Window
                 if (settingsViewModel.AppliedProfileIdInSession is { } appliedProfileId)
                 {
                     // 설정 창의 "프로필 적용"은 표시 설정만 저장하므로, 기본 장치와 앱별 출력은 창이 닫힌 뒤 여기서 적용합니다.
-                    await ApplyAudioProfileCoreAsync(appliedProfileId, ProfileApplySource.SettingsWindow, "설정 창");
+                    await ApplyAudioProfileCoreAsync(appliedProfileId, ProfileApplySource.SettingsWindow, Loc.T("설정 창"));
                 }
 
                 await CheckForUpdateInBackgroundAsync(force: true, reason: "settings_saved");
@@ -524,8 +576,8 @@ public partial class MainWindow : Window
             AppLog.Error("MainWindow", "설정 창 로딩 타임아웃", new TimeoutException("The operation has timed out.", exception));
             System.Windows.MessageBox.Show(
                 this,
-                "설정 창을 여는 동안 장치 정보를 읽지 못해 시간이 초과됐습니다.\n잠시 후 다시 시도해 주세요.",
-                "설정 창 열기 실패",
+                Loc.T("설정 창을 여는 동안 장치 정보를 읽지 못해 시간이 초과됐습니다.\n잠시 후 다시 시도해 주세요."),
+                Loc.T("설정 창 열기 실패"),
                 System.Windows.MessageBoxButton.OK,
                 System.Windows.MessageBoxImage.Warning);
         }
@@ -534,8 +586,8 @@ public partial class MainWindow : Window
             AppLog.Error("MainWindow", "설정 창 로딩 타임아웃", exception);
             System.Windows.MessageBox.Show(
                 this,
-                "설정 창을 여는 동안 장치 정보를 읽지 못해 시간이 초과됐습니다.\n잠시 후 다시 시도해 주세요.",
-                "설정 창 열기 실패",
+                Loc.T("설정 창을 여는 동안 장치 정보를 읽지 못해 시간이 초과됐습니다.\n잠시 후 다시 시도해 주세요."),
+                Loc.T("설정 창 열기 실패"),
                 System.Windows.MessageBoxButton.OK,
                 System.Windows.MessageBoxImage.Warning);
         }
@@ -544,8 +596,8 @@ public partial class MainWindow : Window
             AppLog.Error("MainWindow", "설정 창 로딩 실패", exception);
             System.Windows.MessageBox.Show(
                 this,
-                $"설정 창을 여는 중 오류가 발생했습니다.\n\n원인: {exception.Message}",
-                "설정 창 열기 실패",
+                Loc.F("설정 창을 여는 중 오류가 발생했습니다.\n\n원인: {0}", exception.Message),
+                Loc.T("설정 창 열기 실패"),
                 System.Windows.MessageBoxButton.OK,
                 System.Windows.MessageBoxImage.Error);
         }
@@ -632,8 +684,8 @@ public partial class MainWindow : Window
         {
             System.Windows.MessageBox.Show(
                 this,
-                "현재 세션의 이름 변경 설정을 저장하지 못했습니다.\n잠시 후 다시 시도해 주세요.",
-                "이름 변경 실패",
+                Loc.T("현재 세션의 이름 변경 설정을 저장하지 못했습니다.\n잠시 후 다시 시도해 주세요."),
+                Loc.T("이름 변경 실패"),
                 System.Windows.MessageBoxButton.OK,
                 System.Windows.MessageBoxImage.Warning);
             return;
@@ -655,11 +707,11 @@ public partial class MainWindow : Window
         button.IsEnabled = false;
         try
         {
-            ShowMainStatus("출력 장치 목록을 불러오는 중...");
+            ShowMainStatus(Loc.T("출력 장치 목록을 불러오는 중..."));
             var devices = await _viewModel.GetAvailableOutputDevicesForSessionRoutingAsync();
             if (devices.Count == 0)
             {
-                ShowMainStatus("변경 가능한 출력 장치가 없습니다.", isError: true);
+                ShowMainStatus(Loc.T("변경 가능한 출력 장치가 없습니다."), isError: true);
                 button.IsEnabled = true;
                 return;
             }
@@ -688,7 +740,7 @@ public partial class MainWindow : Window
         catch (Exception exception)
         {
             button.IsEnabled = true;
-            ShowMainStatus("출력 장치 목록을 불러오지 못했습니다.", isError: true);
+            ShowMainStatus(Loc.T("출력 장치 목록을 불러오지 못했습니다."), isError: true);
             AppLog.Warn("MainWindow", $"세션 출력 장치 메뉴 로딩 실패 sessionId={session.Id}", exception);
         }
     }
@@ -697,17 +749,17 @@ public partial class MainWindow : Window
     {
         try
         {
-            ShowMainStatus($"{session.DisplayName} 출력 장치를 {targetDevice.Name}(으)로 변경하는 중...");
+            ShowMainStatus(Loc.F("{0} 출력 장치를 {1}(으)로 변경하는 중...", session.DisplayName, targetDevice.Name));
             await _viewModel.SetSessionOutputDeviceAsync(session.DeviceId, session.Id, targetDevice.Id);
             ShowMainStatus(
-                $"{session.DisplayName} 출력 변경 요청 완료: {targetDevice.Name}. 바로 이동하지 않으면 앱 재생을 다시 시작하세요.");
+                Loc.F("{0} 출력 변경 요청 완료: {1}. 바로 이동하지 않으면 앱 재생을 다시 시작하세요.", session.DisplayName, targetDevice.Name));
             await Task.Delay(300);
             _ = RefreshSessionViewAsync($"session_output_device_changed sessionId={session.Id}");
         }
         catch (Exception exception)
         {
             ShowMainStatus(
-                $"{session.DisplayName} 출력 변경 실패: {targetDevice.Name}. 앱 재생과 대상 장치 상태를 확인하세요.",
+                Loc.F("{0} 출력 변경 실패: {1}. 앱 재생과 대상 장치 상태를 확인하세요.", session.DisplayName, targetDevice.Name),
                 isError: true);
             AppLog.Warn(
                 "MainWindow",
@@ -716,7 +768,7 @@ public partial class MainWindow : Window
             System.Windows.MessageBox.Show(
                 this,
                 BuildSessionOutputChangeFailureMessage(session, targetDevice),
-                "출력 변경 실패",
+                Loc.T("출력 변경 실패"),
                 MessageBoxButton.OK,
                 MessageBoxImage.Warning);
         }
@@ -725,12 +777,12 @@ public partial class MainWindow : Window
     private static string BuildSessionOutputChangeFailureMessage(AudioSessionViewModel session, AudioDeviceInfo targetDevice)
     {
         return
-            $"{session.DisplayName} 출력 장치를 {targetDevice.Name}(으)로 변경하지 못했습니다.\n\n" +
-            "확인할 내용:\n" +
-            "- 대상 출력 장치가 연결되어 있는지 확인해 주세요.\n" +
-            "- 프로그램이 계속 소리를 재생 중인지 확인해 주세요.\n" +
-            "- 일부 앱은 재생을 다시 시작하거나 앱을 재실행해야 변경할 수 있습니다.\n\n" +
-            "자세한 원인은 로그에 기록했습니다.";
+            Loc.F("{0} 출력 장치를 {1}(으)로 변경하지 못했습니다.\n\n", session.DisplayName, targetDevice.Name) +
+            Loc.T("확인할 내용:\n") +
+            Loc.T("- 대상 출력 장치가 연결되어 있는지 확인해 주세요.\n") +
+            Loc.T("- 프로그램이 계속 소리를 재생 중인지 확인해 주세요.\n") +
+            Loc.T("- 일부 앱은 재생을 다시 시작하거나 앱을 재실행해야 변경할 수 있습니다.\n\n") +
+            Loc.T("자세한 원인은 로그에 기록했습니다.");
     }
 
     private static string FormatOutputDeviceMenuHeader(AudioDeviceInfo device, string currentDeviceId)
@@ -738,12 +790,12 @@ public partial class MainWindow : Window
         var suffixes = new List<string>();
         if (string.Equals(device.Id, currentDeviceId, StringComparison.Ordinal))
         {
-            suffixes.Add("현재");
+            suffixes.Add(Loc.T("현재"));
         }
 
         if (device.IsDefault)
         {
-            suffixes.Add("기본");
+            suffixes.Add(Loc.T("기본"));
         }
 
         return suffixes.Count == 0
@@ -984,8 +1036,8 @@ public partial class MainWindow : Window
         // 사용자는 다시 시도 / 설정 열기 / 취소 중 하나를 선택할 수 있습니다.
         var result = System.Windows.MessageBox.Show(
             this,
-            $"기본 출력 장치를 바꾸지 못했습니다.\n\n대상 장치: {device.Name}\n원인 추정: {failureReason}\n상세 메시지: {exception.Message}\n\n예: 다시 시도\n아니오: Windows 소리 설정 열기\n취소: 이 창 닫기",
-            "기본 장치 변경 실패",
+            Loc.F("기본 출력 장치를 바꾸지 못했습니다.\n\n대상 장치: {0}\n원인 추정: {1}\n상세 메시지: {2}\n\n예: 다시 시도\n아니오: Windows 소리 설정 열기\n취소: 이 창 닫기", device.Name, failureReason, exception.Message),
+            Loc.T("기본 장치 변경 실패"),
             System.Windows.MessageBoxButton.YesNoCancel,
             System.Windows.MessageBoxImage.Warning);
 
@@ -999,8 +1051,8 @@ public partial class MainWindow : Window
             {
                 System.Windows.MessageBox.Show(
                     this,
-                    $"재시도에도 실패했습니다.\n\n원인 추정: {ClassifyDefaultDeviceFailure(retryException)}\n상세 메시지: {retryException.Message}\n\nWindows 소리 설정에서 직접 변경할 수 있습니다.",
-                    "기본 장치 변경 재시도 실패",
+                    Loc.F("재시도에도 실패했습니다.\n\n원인 추정: {0}\n상세 메시지: {1}\n\nWindows 소리 설정에서 직접 변경할 수 있습니다.", ClassifyDefaultDeviceFailure(retryException), retryException.Message),
+                    Loc.T("기본 장치 변경 재시도 실패"),
                     System.Windows.MessageBoxButton.OK,
                     System.Windows.MessageBoxImage.Error);
             }
@@ -1014,8 +1066,8 @@ public partial class MainWindow : Window
             {
                 System.Windows.MessageBox.Show(
                     this,
-                    "Windows 소리 설정을 열지 못했습니다.",
-                    "소리 설정 열기 실패",
+                    Loc.T("Windows 소리 설정을 열지 못했습니다."),
+                    Loc.T("소리 설정 열기 실패"),
                     MessageBoxButton.OK,
                     MessageBoxImage.Warning);
             }
@@ -1029,26 +1081,26 @@ public partial class MainWindow : Window
     {
         if (exception is UnauthorizedAccessException)
         {
-            return "권한 또는 보안 정책 때문에 장치 전환이 차단되었을 가능성이 있습니다.";
+            return Loc.T("권한 또는 보안 정책 때문에 장치 전환이 차단되었을 가능성이 있습니다.");
         }
 
         if (exception is COMException comException)
         {
             return comException.HResult switch
             {
-                unchecked((int)0x80070490) => "대상 장치를 찾지 못했습니다. 장치가 제거되었거나 ID가 바뀌었을 수 있습니다.",
-                unchecked((int)0x80070005) => "접근이 거부되었습니다. 관리자 정책 또는 오디오 서비스 상태를 확인하세요.",
-                unchecked((int)0x88890004) => "오디오 엔드포인트 상태가 유효하지 않습니다. 장치 연결 상태를 다시 확인하세요.",
-                _ => $"COM 호출이 실패했습니다. HRESULT=0x{comException.HResult:X8}"
+                unchecked((int)0x80070490) => Loc.T("대상 장치를 찾지 못했습니다. 장치가 제거되었거나 ID가 바뀌었을 수 있습니다."),
+                unchecked((int)0x80070005) => Loc.T("접근이 거부되었습니다. 관리자 정책 또는 오디오 서비스 상태를 확인하세요."),
+                unchecked((int)0x88890004) => Loc.T("오디오 엔드포인트 상태가 유효하지 않습니다. 장치 연결 상태를 다시 확인하세요."),
+                _ => Loc.F("COM 호출이 실패했습니다. HRESULT=0x{0:X8}", comException.HResult)
             };
         }
 
         if (exception is InvalidOperationException)
         {
-            return "현재 오디오 장치 상태가 변경 중이어서 요청을 처리하지 못했습니다.";
+            return Loc.T("현재 오디오 장치 상태가 변경 중이어서 요청을 처리하지 못했습니다.");
         }
 
-        return "예상하지 못한 오류가 발생했습니다.";
+        return Loc.T("예상하지 못한 오류가 발생했습니다.");
     }
 
     /// <summary>
@@ -1057,6 +1109,7 @@ public partial class MainWindow : Window
     protected override void OnClosed(EventArgs e)
     {
         _audioNotificationService.Changed -= AudioNotificationService_OnChanged;
+        Loc.LanguageChanged -= Loc_OnLanguageChanged;
         Loaded -= MainWindow_OnLoaded;
         StateChanged -= MainWindow_OnStateChanged;
         Activated -= MainWindow_OnActivationChanged;
@@ -1134,10 +1187,10 @@ public partial class MainWindow : Window
     private static bool TryOpenIssueCreationPage()
     {
         var currentVersion = GetApplicationVersionText();
-        var title = Uri.EscapeDataString("[Bug] 비정상 종료 보고");
+        var title = Uri.EscapeDataString(Loc.T("[Bug] 비정상 종료 보고"));
         const string redactedLogDirectoryHint = @"%LocalAppData%\DesktopAudioController\logs";
         var body = Uri.EscapeDataString(
-            $"## 요약\n이전 실행이 정상 종료되지 않았습니다.\n\n## 환경\n- 버전: {currentVersion}\n- 로그 폴더: {redactedLogDirectoryHint}\n\n## 확인 사항\n- 앱 실행 중 강제 종료/재부팅/블루스크린/크래시 가능성\n- 최신 로그 파일을 첨부해 주세요.\n");
+            Loc.F("## 요약\n이전 실행이 정상 종료되지 않았습니다.\n\n## 환경\n- 버전: {0}\n- 로그 폴더: {1}\n\n## 확인 사항\n- 앱 실행 중 강제 종료/재부팅/블루스크린/크래시 가능성\n- 최신 로그 파일을 첨부해 주세요.\n", currentVersion, redactedLogDirectoryHint));
 
         return TryOpenReleasePage($"https://github.com/SeoArin9142/DesktopAudioController/issues/new?labels=bug&title={title}&body={body}");
     }
@@ -1162,7 +1215,7 @@ public partial class MainWindow : Window
             var totalSeconds = Math.Max(1, (int)Math.Ceiling(delay.TotalSeconds));
             ShowTrayNotification(
                 "DesktopAudioController",
-                $"오디오 초기화가 지연되어 {totalSeconds}초 뒤 자동으로 다시 시작합니다.");
+                Loc.F("오디오 초기화가 지연되어 {0}초 뒤 자동으로 다시 시작합니다.", totalSeconds));
             AppLog.Info("MainWindow", $"자동 재시작 안내 표시 delaySeconds={totalSeconds}");
         }
         catch (Exception exception)
@@ -1187,12 +1240,12 @@ public partial class MainWindow : Window
         {
             var startedAtText = _previousRunIncident.StartedAtUtc == default
                 ? string.Empty
-                : $"\n이전 시작 시각: {_previousRunIncident.StartedAtUtc.ToLocalTime():yyyy-MM-dd HH:mm:ss}";
+                : Loc.F("\n이전 시작 시각: {0:yyyy-MM-dd HH:mm:ss}", _previousRunIncident.StartedAtUtc.ToLocalTime());
 
             var result = System.Windows.MessageBox.Show(
                 this,
-                $"{_previousRunIncident.Message}{startedAtText}\n\n예: 로그 폴더 열기\n아니오: GitHub 이슈 작성\n취소: 닫기",
-                "비정상 종료 감지",
+                Loc.F("{0}{1}\n\n예: 로그 폴더 열기\n아니오: GitHub 이슈 작성\n취소: 닫기", _previousRunIncident.Message, startedAtText),
+                Loc.T("비정상 종료 감지"),
                 MessageBoxButton.YesNoCancel,
                 MessageBoxImage.Warning);
 
@@ -1202,8 +1255,8 @@ public partial class MainWindow : Window
                 {
                     System.Windows.MessageBox.Show(
                         this,
-                        "로그 폴더를 열지 못했습니다.",
-                        "로그 폴더 열기 실패",
+                        Loc.T("로그 폴더를 열지 못했습니다."),
+                        Loc.T("로그 폴더 열기 실패"),
                         MessageBoxButton.OK,
                         MessageBoxImage.Warning);
                 }
@@ -1215,8 +1268,8 @@ public partial class MainWindow : Window
             {
                 System.Windows.MessageBox.Show(
                     this,
-                    "브라우저에서 GitHub 이슈 페이지를 열지 못했습니다.",
-                    "이슈 페이지 열기 실패",
+                    Loc.T("브라우저에서 GitHub 이슈 페이지를 열지 못했습니다."),
+                    Loc.T("이슈 페이지 열기 실패"),
                     MessageBoxButton.OK,
                     MessageBoxImage.Warning);
             }
@@ -1295,13 +1348,13 @@ public partial class MainWindow : Window
     {
         AppLog.Warn("MainWindow", $"자동 업데이트 시작 실패 message={message}");
         UpdateStatusText.Foreground = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0xB3, 0x5A, 0x00));
-        UpdateStatusText.Text = $"자동 업데이트 실패: {message}";
+        UpdateStatusText.Text = Loc.F("자동 업데이트 실패: {0}", message);
         UpdateStatusText.Visibility = Visibility.Visible;
 
         var result = System.Windows.MessageBox.Show(
             this,
-            $"{message}\n\n수동 다운로드 페이지를 열까요?",
-            "자동 업데이트 실패",
+            Loc.F("{0}\n\n수동 다운로드 페이지를 열까요?", message),
+            Loc.T("자동 업데이트 실패"),
             MessageBoxButton.OKCancel,
             MessageBoxImage.Warning);
 
@@ -1309,8 +1362,8 @@ public partial class MainWindow : Window
         {
             System.Windows.MessageBox.Show(
                 this,
-                "브라우저에서 다운로드 페이지를 열지 못했습니다.",
-                "다운로드 페이지 열기 실패",
+                Loc.T("브라우저에서 다운로드 페이지를 열지 못했습니다."),
+                Loc.T("다운로드 페이지 열기 실패"),
                 MessageBoxButton.OK,
                 MessageBoxImage.Warning);
         }
@@ -1321,7 +1374,7 @@ public partial class MainWindow : Window
         Dispatcher.InvokeAsync(() =>
         {
             UpdateStatusText.Foreground = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0x00, 0x66, 0xAA));
-            UpdateStatusText.Text = $"새 버전 {latestVersion}: {progressMessage}";
+            UpdateStatusText.Text = Loc.F("새 버전 {0}: {1}", latestVersion, progressMessage);
             UpdateStatusText.Visibility = Visibility.Visible;
         });
     }
@@ -1436,8 +1489,8 @@ public partial class MainWindow : Window
                 {
                     System.Windows.MessageBox.Show(
                         this,
-                        "로그 폴더를 열지 못했습니다.",
-                        "로그 폴더 열기 실패",
+                        Loc.T("로그 폴더를 열지 못했습니다."),
+                        Loc.T("로그 폴더 열기 실패"),
                         MessageBoxButton.OK,
                         MessageBoxImage.Warning);
                 }
@@ -1452,20 +1505,20 @@ public partial class MainWindow : Window
         {
             System.Windows.MessageBox.Show(
                 this,
-                "설정 창이 열려 있어 트레이에서 프로필을 적용하지 않았습니다.\n설정 창을 닫은 뒤 다시 시도해 주세요.",
-                "프로필 적용 보류",
+                Loc.T("설정 창이 열려 있어 트레이에서 프로필을 적용하지 않았습니다.\n설정 창을 닫은 뒤 다시 시도해 주세요."),
+                Loc.T("프로필 적용 보류"),
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);
             return;
         }
 
-        var result = await ApplyAudioProfileCoreAsync(profileId, ProfileApplySource.Tray, "트레이 메뉴");
+        var result = await ApplyAudioProfileCoreAsync(profileId, ProfileApplySource.Tray, Loc.T("트레이 메뉴"));
         if (!result.Success)
         {
             System.Windows.MessageBox.Show(
                 this,
-                $"프로필을 적용하지 못했습니다.\n\n원인: {result.ErrorMessage}",
-                "프로필 적용 실패",
+                Loc.F("프로필을 적용하지 못했습니다.\n\n원인: {0}", result.ErrorMessage),
+                Loc.T("프로필 적용 실패"),
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
         }
@@ -1498,7 +1551,7 @@ public partial class MainWindow : Window
                 await Dispatcher.InvokeAsync(() =>
                 {
                     UpdateStatusText.Foreground = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0x66, 0x66, 0x66));
-                    UpdateStatusText.Text = "방금 업데이트를 확인했습니다. 잠시 후 다시 시도해 주세요.";
+                    UpdateStatusText.Text = Loc.T("방금 업데이트를 확인했습니다. 잠시 후 다시 시도해 주세요.");
                     UpdateStatusText.Visibility = Visibility.Visible;
                 });
             }
@@ -1513,7 +1566,7 @@ public partial class MainWindow : Window
                 await Dispatcher.InvokeAsync(() =>
                 {
                     UpdateStatusText.Foreground = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0x00, 0x66, 0xAA));
-                    UpdateStatusText.Text = "업데이트 확인 중...";
+                    UpdateStatusText.Text = Loc.T("업데이트 확인 중...");
                     UpdateStatusText.Visibility = Visibility.Visible;
                 });
             }
@@ -1535,7 +1588,7 @@ public partial class MainWindow : Window
                 if (showNoUpdateStatus)
                 {
                     UpdateStatusText.Foreground = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0x00, 0x66, 0xAA));
-                    UpdateStatusText.Text = "업데이트 확인 중...";
+                    UpdateStatusText.Text = Loc.T("업데이트 확인 중...");
                     UpdateStatusText.Visibility = Visibility.Visible;
                     return;
                 }
@@ -1561,7 +1614,7 @@ public partial class MainWindow : Window
                 updateCheckResult = new UpdateCheckResult
                 {
                     HadError = true,
-                    StatusMessage = "업데이트 확인에 실패했습니다."
+                    StatusMessage = Loc.T("업데이트 확인에 실패했습니다.")
                 };
             }
 
@@ -1570,7 +1623,7 @@ public partial class MainWindow : Window
                 if (updateCheckResult.HadError)
                 {
                     UpdateStatusText.Foreground = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0xB3, 0x5A, 0x00));
-                    UpdateStatusText.Text = updateCheckResult.StatusMessage ?? "업데이트 확인에 실패했습니다.";
+                    UpdateStatusText.Text = updateCheckResult.StatusMessage ?? Loc.T("업데이트 확인에 실패했습니다.");
                     UpdateStatusText.Visibility = Visibility.Visible;
                     return;
                 }
@@ -1581,7 +1634,7 @@ public partial class MainWindow : Window
                     if (showNoUpdateStatus)
                     {
                         UpdateStatusText.Foreground = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0x66, 0x66, 0x66));
-                        UpdateStatusText.Text = "현재 최신 버전입니다.";
+                        UpdateStatusText.Text = Loc.T("현재 최신 버전입니다.");
                         UpdateStatusText.Visibility = Visibility.Visible;
                         return;
                     }
@@ -1593,10 +1646,10 @@ public partial class MainWindow : Window
 
                 UpdateStatusText.Foreground = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0x00, 0xAA, 0x66));
                 var publishedDateText = updateCheckResult.PublishedAtUtc.HasValue
-                    ? $" · 공개: {updateCheckResult.PublishedAtUtc.Value.ToLocalTime():yyyy-MM-dd HH:mm}"
+                    ? Loc.F(" · 공개: {0:yyyy-MM-dd HH:mm}", updateCheckResult.PublishedAtUtc.Value.ToLocalTime())
                     : string.Empty;
-                var preReleaseText = updateCheckResult.IsPreRelease ? " (프리릴리즈)" : string.Empty;
-                UpdateStatusText.Text = $"새 버전 {updateCheckResult.LatestVersion}{preReleaseText} 업데이트 가능{publishedDateText}";
+                var preReleaseText = updateCheckResult.IsPreRelease ? Loc.T(" (프리릴리즈)") : string.Empty;
+                UpdateStatusText.Text = Loc.F("새 버전 {0}{1} 업데이트 가능{2}", updateCheckResult.LatestVersion, preReleaseText, publishedDateText);
                 UpdateStatusText.Visibility = Visibility.Visible;
                 UpdateButton.Visibility = Visibility.Visible;
             });

@@ -1,6 +1,7 @@
 <Window x:Class="DesktopAudioController.Views.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:loc="clr-namespace:DesktopAudioController.Localization"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
@@ -30,7 +31,7 @@
                 <TextBlock x:Name="VersionText"
                            Margin="0,4,0,0"
                            Foreground="#666"
-                           Text="버전 확인 중..." />
+                           Text="{loc:Loc '버전 확인 중...'}" />
                 <TextBlock x:Name="UpdateStatusText"
                            Margin="0,4,0,0"
                            Foreground="#0A6"
@@ -46,32 +47,38 @@
             <WrapPanel Grid.Row="1"
                        Margin="0,12,0,0"
                        HorizontalAlignment="Right">
-                <Button x:Name="CheckUpdateButton"
-                        Width="104"
+                <Button Padding="10,2" x:Name="CheckUpdateButton"
+                        MinWidth="104"
                         Margin="0,0,8,8"
                         Click="CheckUpdateButton_OnClick"
-                        Content="업데이트 확인"
-                        ToolTip="GitHub 릴리즈에서 새 버전이 있는지 다시 확인합니다." />
-                <Button x:Name="UpdateButton"
-                        Width="96"
+                        Content="{loc:Loc '업데이트 확인'}"
+                        ToolTip="{loc:Loc 'GitHub 릴리즈에서 새 버전이 있는지 다시 확인합니다.'}" />
+                <Button Padding="10,2" x:Name="UpdateButton"
+                        MinWidth="96"
                         Margin="0,0,8,8"
                         Click="UpdateButton_OnClick"
-                        Content="업데이트"
-                        ToolTip="새 zip을 자동 다운로드한 뒤 기존 실행 폴더에 덮어씁니다."
+                        Content="{loc:Loc '업데이트'}"
+                        ToolTip="{loc:Loc '새 zip을 자동 다운로드한 뒤 기존 실행 폴더에 덮어씁니다.'}"
                         Visibility="Collapsed" />
-                <Button Width="104"
+                <Button Padding="10,2" MinWidth="104"
                         Margin="0,0,8,8"
                         Click="OpenReleasePageButton_OnClick"
-                        Content="릴리즈 노트"
-                        ToolTip="GitHub 릴리즈 페이지를 엽니다." />
-                <Button Width="88"
+                        Content="{loc:Loc '릴리즈 노트'}"
+                        ToolTip="{loc:Loc 'GitHub 릴리즈 페이지를 엽니다.'}" />
+                <Button Padding="10,2" MinWidth="88"
                         Margin="0,0,8,8"
                         Click="RefreshButton_OnClick"
-                        Content="새로고침" />
-                <Button Width="88"
-                        Margin="0,0,0,8"
+                        Content="{loc:Loc '새로고침'}" />
+                <Button Padding="10,2" MinWidth="88"
+                        Margin="0,0,8,8"
                         Click="SettingsButton_OnClick"
-                        Content="설정" />
+                        Content="{loc:Loc '설정'}" />
+                <!-- 지금과 다른 언어 이름을 보여 주고, 누르면 그 언어로 바로 바꿉니다. -->
+                <Button Padding="10,2" x:Name="LanguageToggleButton"
+                        MinWidth="88"
+                        Margin="0,0,0,8"
+                        Click="LanguageToggleButton_OnClick"
+                        ToolTip="언어 바꾸기 / Change language" />
             </WrapPanel>
 
             <!-- 저장한 프로필을 한 번에 바꾸는 영역입니다. 버튼은 코드에서 프로필 목록대로 만듭니다. -->
@@ -90,7 +97,7 @@
                         </Grid.ColumnDefinitions>
                         <TextBlock VerticalAlignment="Center"
                                    FontWeight="SemiBold"
-                                   Text="프로필" />
+                                   Text="{loc:Loc '프로필'}" />
                         <TextBlock x:Name="ProfileStatusText"
                                    Grid.Column="1"
                                    Margin="12,0,8,0"
@@ -101,8 +108,8 @@
                                       Grid.Column="2"
                                       Padding="10,2"
                                       Click="AutoProfilePauseButton_OnClick"
-                                      Content="자동 전환 일시정지"
-                                      ToolTip="실행 프로그램에 따른 자동 프로필 전환을 잠시 멈춥니다."
+                                      Content="{loc:Loc '자동 전환 일시정지'}"
+                                      ToolTip="{loc:Loc '실행 프로그램에 따른 자동 프로필 전환을 잠시 멈춥니다.'}"
                                       Visibility="Collapsed" />
                     </Grid>
                     <WrapPanel x:Name="ProfileButtonsPanel"
@@ -110,7 +117,7 @@
                     <TextBlock x:Name="ProfileEmptyText"
                                Margin="0,8,0,0"
                                Foreground="#666"
-                               Text="저장한 프로필이 없습니다. 설정 > 수동 프로필에서 지금 상태를 프로필로 만들 수 있습니다."
+                               Text="{loc:Loc '저장한 프로필이 없습니다. 설정 > 수동 프로필에서 지금 상태를 프로필로 만들 수 있습니다.'}"
                                TextWrapping="Wrap"
                                Visibility="Collapsed" />
                 </StackPanel>
@@ -128,7 +135,7 @@
                            HorizontalAlignment="Center"
                            VerticalAlignment="Center"
                            Foreground="#666"
-                           Text="메인 화면에 표시할 출력 장치가 없습니다. 상단 설정에서 장치를 고른 뒤 다시 돌아오세요."
+                           Text="{loc:Loc '메인 화면에 표시할 출력 장치가 없습니다. 상단 설정에서 장치를 고른 뒤 다시 돌아오세요.'}"
                            TextAlignment="Center"
                            TextWrapping="Wrap"
                            Visibility="Collapsed" />
@@ -163,10 +170,10 @@
                                                 <TextBlock Margin="0,0,8,0"
                                                            VerticalAlignment="Center"
                                                            Foreground="#666"
-                                                           Text="{Binding IsDefault, StringFormat=기본 장치: {0}}" />
+                                                           Text="{loc:LocFormat Path=IsDefault, Format='기본 장치: {0}'}" />
                                                 <Button Padding="8,2"
                                                         Click="SetDefaultButton_OnClick"
-                                                        Content="기본 장치로 설정" />
+                                                        Content="{loc:Loc '기본 장치로 설정'}" />
                                             </StackPanel>
                                         </Grid>
                                         <!-- 장치 마스터 볼륨은 초기 화면에서 항상 바로 조절할 수 있게 둡니다. -->
@@ -175,11 +182,11 @@
                                                 IsMoveToPointEnabled="True"
                                                 Value="{Binding Volume}" />
                                         <DockPanel Margin="0,8,0,0">
-                                            <TextBlock Text="{Binding Volume, StringFormat=마스터 볼륨: {0}%}" />
+                                            <TextBlock Text="{loc:LocFormat Path=Volume, Format='마스터 볼륨: {0}%'}" />
                                             <CheckBox DockPanel.Dock="Right"
                                                       Margin="16,0,0,0"
                                                       IsChecked="{Binding IsMuted}"
-                                                      Content="음소거" />
+                                                      Content="{loc:Loc '음소거'}" />
                                         </DockPanel>
 
                                         <!-- 장치를 선택하면 프로그램별 세션 목록을 펼쳐 볼 수 있습니다. -->
@@ -187,7 +194,7 @@
                                                       Checked="SessionToggleButton_OnChecked"
                                                       Unchecked="SessionToggleButton_OnUnchecked"
                                                       IsChecked="{Binding IsExpanded}"
-                                                      Content="프로그램별 볼륨 열기" />
+                                                      Content="{loc:Loc '프로그램별 볼륨 열기'}" />
 
                                         <Border Margin="0,12,0,0"
                                                 Padding="10"
@@ -211,7 +218,7 @@
                                                 <TextBlock Margin="0,0,0,8"
                                                            FontSize="13"
                                                            FontWeight="SemiBold"
-                                                           Text="해당 장치에서 출력 중인 프로그램" />
+                                                           Text="{loc:Loc '해당 장치에서 출력 중인 프로그램'}" />
                                                 <ItemsControl ItemsSource="{Binding Sessions}">
                                                     <ItemsControl.ItemTemplate>
                                                         <DataTemplate>
@@ -268,18 +275,18 @@
                                                                                     Padding="8,2"
                                                                                     VerticalAlignment="Center"
                                                                                     Click="RenameSessionButton_OnClick"
-                                                                                    Content="이름 변경" />
+                                                                                    Content="{loc:Loc '이름 변경'}" />
                                                                             <Button Margin="0,0,8,0"
                                                                                     Padding="8,2"
                                                                                     VerticalAlignment="Center"
                                                                                     Click="ChangeSessionOutputButton_OnClick"
-                                                                                    Content="출력 변경"
-                                                                                    ToolTip="이 프로그램의 앱별 출력 장치를 변경합니다." />
+                                                                                    Content="{loc:Loc '출력 변경'}"
+                                                                                    ToolTip="{loc:Loc '이 프로그램의 앱별 출력 장치를 변경합니다.'}" />
                                                                             <CheckBox Margin="8,0,0,0"
                                                                                       VerticalAlignment="Center"
                                                                                       VerticalContentAlignment="Center"
                                                                                       IsChecked="{Binding IsMuted}"
-                                                                                      Content="음소거" />
+                                                                                      Content="{loc:Loc '음소거'}" />
                                                                         </StackPanel>
                                                                     </DockPanel>
                                                                     <Slider Minimum="0"
@@ -287,7 +294,7 @@
                                                                             IsMoveToPointEnabled="True"
                                                                             Value="{Binding Volume}" />
                                                                     <TextBlock Margin="0,6,0,0"
-                                                                               Text="{Binding Volume, StringFormat=세션 볼륨: {0}%}" />
+                                                                               Text="{loc:LocFormat Path=Volume, Format='세션 볼륨: {0}%'}" />
                                                                 </StackPanel>
                                                             </Border>
                                                         </DataTemplate>

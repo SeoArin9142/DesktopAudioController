@@ -1,4 +1,5 @@
 using System.Windows;
+using DesktopAudioController.Localization;
 
 namespace DesktopAudioController.Views;
 
@@ -12,7 +13,7 @@ public partial class RenameProgramWindow : Window
         InitializeComponent();
         CurrentDisplayNameText.Text = currentDisplayName;
         ExecutablePathText.Text = string.IsNullOrWhiteSpace(executablePath)
-            ? "실행 경로를 아직 확인하지 못했습니다."
+            ? Loc.T("실행 경로를 아직 확인하지 못했습니다.")
             : executablePath;
         CustomDisplayNameTextBox.Text = currentDisplayName;
         Loaded += (_, _) =>

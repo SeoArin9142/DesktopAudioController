@@ -8,6 +8,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using DesktopAudioController.Localization;
 
 namespace DesktopAudioController;
 
@@ -115,6 +116,9 @@ public partial class App : System.Windows.Application
         base.OnStartup(e);
         AppLog.Initialize();
         AppLog.ConfigureDebugLogging(AudioDeviceProbeCommand.HasDebugLogFlag(e.Args));
+
+        // 워커가 돌려주는 오류 문구도 같은 언어가 되도록, 워커 분기보다 먼저 화면 언어를 정합니다.
+        Loc.ConfigureFromSettingsFile(new SettingsService().SettingsFilePath);
         AppLog.Info("App", $"Build info {AppBuildInfo.LogSummary}");
         AppLog.Info("App", $"OnStartup args=[{string.Join(", ", e.Args)}]");
 
@@ -257,7 +261,7 @@ public partial class App : System.Windows.Application
             System.Windows.MessageBox.Show(
                 mainWindow,
                 warningMessage,
-                "설정 파일 복구 안내",
+                Loc.T("설정 파일 복구 안내"),
                 MessageBoxButton.OK,
                 MessageBoxImage.Warning);
         }
@@ -292,7 +296,7 @@ public partial class App : System.Windows.Application
                 $"초기 캐시 장치 로드 완료 visibleDevices={mainViewModel.VisibleDevices.Count} hasConfiguredDevices={mainViewModel.HasConfiguredDevices} cachedCount={startupSnapshot.Devices.Count} capturedAtUtc={startupSnapshot.CapturedAtUtc:O}");
             var requiresBackgroundRefresh = mainViewModel.HasConfiguredDevices || startupSnapshot.Devices.Count > 0;
             var effectiveWarningMessage = requiresBackgroundRefresh && string.IsNullOrWhiteSpace(startupWarningMessage)
-                ? "이전 장치 상태로 먼저 시작했습니다. 백그라운드에서 최신 장치 상태를 확인하는 중입니다."
+                ? Loc.T("이전 장치 상태로 먼저 시작했습니다. 백그라운드에서 최신 장치 상태를 확인하는 중입니다.")
                 : startupWarningMessage;
             return Task.FromResult(new StartupViewModelResult(mainViewModel, effectiveWarningMessage, requiresBackgroundRefresh));
         }
@@ -302,7 +306,7 @@ public partial class App : System.Windows.Application
             "App",
             $"초기 캐시 없음: 빈 장치 스냅샷으로 시작 visibleDevices={mainViewModel.VisibleDevices.Count} hasConfiguredDevices={mainViewModel.HasConfiguredDevices}");
         var startupDeferredWarningMessage = string.IsNullOrWhiteSpace(startupWarningMessage) && mainViewModel.HasConfiguredDevices
-            ? "오디오 장치를 초기화하는 중입니다. 잠시 후 자동으로 최신 상태로 갱신합니다."
+            ? Loc.T("오디오 장치를 초기화하는 중입니다. 잠시 후 자동으로 최신 상태로 갱신합니다.")
             : startupWarningMessage;
         var shouldRefreshInBackground = mainViewModel.HasConfiguredDevices || !string.IsNullOrWhiteSpace(startupDeferredWarningMessage);
         return Task.FromResult(new StartupViewModelResult(mainViewModel, startupDeferredWarningMessage, shouldRefreshInBackground));
@@ -364,7 +368,7 @@ public partial class App : System.Windows.Application
         catch (Exception exception)
         {
             AppLog.Error("App", "오디오 서비스 초기화 실패, 제한 모드로 전환", exception);
-            return EnterDegradedMode("오디오 초기화에 실패해 제한 모드로 시작했습니다. 일부 오디오 제어 기능은 비활성화됩니다.");
+            return EnterDegradedMode(Loc.T("오디오 초기화에 실패해 제한 모드로 시작했습니다. 일부 오디오 제어 기능은 비활성화됩니다."));
         }
     }
 
@@ -532,7 +536,7 @@ public partial class App : System.Windows.Application
             reason,
             Array.Empty<string>(),
             TimeSpan.FromSeconds(2),
-            "제한 모드 재시작 복구 예약");
+            Loc.T("제한 모드 재시작 복구 예약"));
     }
 
     internal bool TryScheduleRestartForDebugLogging()
@@ -704,7 +708,7 @@ public partial class App : System.Windows.Application
             var executablePath = Environment.ProcessPath;
             if (string.IsNullOrWhiteSpace(executablePath))
             {
-                throw new InvalidOperationException("현재 실행 파일 경로를 확인할 수 없습니다.");
+                throw new InvalidOperationException(Loc.T("현재 실행 파일 경로를 확인할 수 없습니다."));
             }
 
             audioDeviceCatalogService = new WorkerBackedAudioDeviceCatalogService(

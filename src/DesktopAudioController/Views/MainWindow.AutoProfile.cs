@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Media;
 using DesktopAudioController.Models;
 using DesktopAudioController.Services;
+using DesktopAudioController.Localization;
 
 namespace DesktopAudioController.Views;
 
@@ -101,7 +102,7 @@ public partial class MainWindow
         AppLog.Info("MainWindow", $"명령 실행 kind={command.Kind} value={command.Value}");
         if (IsSettingsWindowOpenOrOpening())
         {
-            ShowTrayNotification("명령 보류", "설정 창이 열려 있어 명령을 실행하지 않았습니다. 설정 창을 닫은 뒤 다시 눌러 주세요.");
+            ShowTrayNotification(Loc.T("명령 보류"), Loc.T("설정 창이 열려 있어 명령을 실행하지 않았습니다. 설정 창을 닫은 뒤 다시 눌러 주세요."));
             return;
         }
 
@@ -122,14 +123,14 @@ public partial class MainWindow
                     if (profile is null)
                     {
                         AppLog.Warn("MainWindow", $"명령 프로필 찾기 실패 value={command.Value} reason={error}");
-                        ShowTrayNotification("프로필 명령 실패", error ?? "프로필을 찾지 못했습니다.");
+                        ShowTrayNotification(Loc.T("프로필 명령 실패"), error ?? Loc.T("프로필을 찾지 못했습니다."));
                         return;
                     }
 
-                    var result = await ApplyAudioProfileCoreAsync(profile.Id, ProfileApplySource.Command, "명령");
+                    var result = await ApplyAudioProfileCoreAsync(profile.Id, ProfileApplySource.Command, Loc.T("명령"));
                     if (!result.Success)
                     {
-                        ShowTrayNotification("프로필 적용 실패", result.ErrorMessage ?? "알 수 없는 오류");
+                        ShowTrayNotification(Loc.T("프로필 적용 실패"), result.ErrorMessage ?? Loc.T("알 수 없는 오류"));
                     }
 
                     return;
@@ -142,7 +143,7 @@ public partial class MainWindow
         catch (Exception exception)
         {
             AppLog.Error("MainWindow", $"명령 실행 실패 kind={command.Kind}", exception);
-            ShowTrayNotification("명령 실패", exception.Message);
+            ShowTrayNotification(Loc.T("명령 실패"), exception.Message);
         }
     }
 
@@ -150,7 +151,7 @@ public partial class MainWindow
     {
         if (profiles.Count == 0)
         {
-            error = "저장한 프로필이 없습니다.";
+            error = Loc.T("저장한 프로필이 없습니다.");
             return null;
         }
 
@@ -162,7 +163,7 @@ public partial class MainWindow
                 return profiles[index - 1];
             }
 
-            error = $"프로필 번호 '{command.Value}'가 없습니다. 1~{profiles.Count} 사이로 지정해 주세요.";
+            error = Loc.F("프로필 번호 '{0}'가 없습니다. 1~{1} 사이로 지정해 주세요.", command.Value, profiles.Count);
             return null;
         }
 
@@ -176,7 +177,7 @@ public partial class MainWindow
         if (device is null)
         {
             AppLog.Warn("MainWindow", $"명령 음소거 장치 찾기 실패 value={deviceName} reason={error}");
-            ShowTrayNotification("음소거 명령 실패", error ?? "장치를 찾지 못했습니다.");
+            ShowTrayNotification(Loc.T("음소거 명령 실패"), error ?? Loc.T("장치를 찾지 못했습니다."));
             return;
         }
 
@@ -186,7 +187,7 @@ public partial class MainWindow
         await RefreshStateViewAsync("command_toggle_mute");
         if (_autoProfileSettings.ShowAutoProfileNotifications)
         {
-            ShowTrayNotification("장치 음소거", $"{device.Name}: {(muted ? "음소거" : "음소거 해제")}");
+            ShowTrayNotification(Loc.T("장치 음소거"), Loc.F("{0}: {1}", device.Name, (muted ? Loc.T("음소거") : Loc.T("음소거 해제"))));
         }
     }
 
@@ -219,7 +220,7 @@ public partial class MainWindow
         var hotkeyFailures = ReloadAutoProfileConfiguration(settings, "startup");
         if (hotkeyFailures.Count > 0)
         {
-            ShowTrayNotification("단축키 등록 실패", string.Join("\n", hotkeyFailures));
+            ShowTrayNotification(Loc.T("단축키 등록 실패"), string.Join("\n", hotkeyFailures));
         }
     }
 
@@ -282,7 +283,7 @@ public partial class MainWindow
         if (_globalHotkeyService is null)
         {
             return settings.EnableProfileHotkeys
-                ? ["전역 단축키를 초기화하지 못해 단축키를 쓸 수 없습니다. 로그를 확인해 주세요."]
+                ? [Loc.T("전역 단축키를 초기화하지 못해 단축키를 쓸 수 없습니다. 로그를 확인해 주세요.")]
                 : [];
         }
 
@@ -308,10 +309,10 @@ public partial class MainWindow
         _trayMenuService.InvalidateMenu();
         RefreshTrayMenu(force: true);
         ShowTrayNotification(
-            "자동 프로필 전환",
+            Loc.T("자동 프로필 전환"),
             _isAutoProfilePaused
-                ? "자동 전환을 일시정지했습니다. 트레이 메뉴에서 다시 켤 수 있습니다."
-                : "자동 전환을 다시 시작했습니다.");
+                ? Loc.T("자동 전환을 일시정지했습니다. 트레이 메뉴에서 다시 켤 수 있습니다.")
+                : Loc.T("자동 전환을 다시 시작했습니다."));
     }
 
     private TrayMenuService.AutoProfileMenu BuildAutoProfileTrayMenu(AppSettings settings)
@@ -319,15 +320,15 @@ public partial class MainWindow
         var currentProfile = settings.AudioProfiles.FirstOrDefault(profile =>
             string.Equals(profile.Id, _currentProfileId, StringComparison.Ordinal));
         var currentProfileText = currentProfile is null
-            ? "현재 프로필: 없음"
-            : $"현재 프로필: {currentProfile.Name}";
+            ? Loc.T("현재 프로필: 없음")
+            : Loc.F("현재 프로필: {0}", currentProfile.Name);
         if (currentProfile is not null && _activeAutoRuleName is not null)
         {
-            currentProfileText += $" (자동: {_activeAutoRuleName})";
+            currentProfileText += Loc.F(" (자동: {0})", _activeAutoRuleName);
         }
         else if (settings.AutoProfileSwitchEnabled && _isAutoProfilePaused)
         {
-            currentProfileText += " (자동 전환 일시정지)";
+            currentProfileText += Loc.T(" (자동 전환 일시정지)");
         }
 
         return new TrayMenuService.AutoProfileMenu(
@@ -348,7 +349,7 @@ public partial class MainWindow
         ProfileStatusText.Text = autoProfileMenu.CurrentProfileText;
         ProfileStatusText.ToolTip = autoProfileMenu.CurrentProfileText;
         AutoProfilePauseButton.Visibility = settings.AutoProfileSwitchEnabled ? Visibility.Visible : Visibility.Collapsed;
-        AutoProfilePauseButton.Content = _isAutoProfilePaused ? "자동 전환 다시 켜기" : "자동 전환 일시정지";
+        AutoProfilePauseButton.Content = _isAutoProfilePaused ? Loc.T("자동 전환 다시 켜기") : Loc.T("자동 전환 일시정지");
 
         var profiles = settings.AudioProfiles
             .OrderBy(profile => profile.Name, StringComparer.CurrentCultureIgnoreCase)
@@ -381,8 +382,8 @@ public partial class MainWindow
                     ? new SolidColorBrush(System.Windows.Media.Color.FromRgb(0xE5, 0xF1, 0xFB))
                     : System.Windows.SystemColors.ControlBrush,
                 ToolTip = string.IsNullOrWhiteSpace(profile.Hotkey)
-                    ? $"{profile.Name} 프로필 적용"
-                    : $"{profile.Name} 프로필 적용 ({profile.Hotkey})"
+                    ? Loc.F("{0} 프로필 적용", profile.Name)
+                    : Loc.F("{0} 프로필 적용 ({1})", profile.Name, profile.Hotkey)
             };
             button.Click += (_, _) => _ = ApplyAudioProfileFromMainWindowAsync(profileId);
             ProfileButtonsPanel.Children.Add(button);
@@ -391,13 +392,13 @@ public partial class MainWindow
 
     private async Task ApplyAudioProfileFromMainWindowAsync(string profileId)
     {
-        var result = await ApplyAudioProfileCoreAsync(profileId, ProfileApplySource.MainWindow, "메인 화면");
+        var result = await ApplyAudioProfileCoreAsync(profileId, ProfileApplySource.MainWindow, Loc.T("메인 화면"));
         if (!result.Success)
         {
             System.Windows.MessageBox.Show(
                 this,
-                $"프로필을 적용하지 못했습니다.\n\n원인: {result.ErrorMessage}",
-                "프로필 적용 실패",
+                Loc.F("프로필을 적용하지 못했습니다.\n\n원인: {0}", result.ErrorMessage),
+                Loc.T("프로필 적용 실패"),
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
         }
@@ -500,7 +501,7 @@ public partial class MainWindow
             var warnings = await ApplyProgramOutputRoutesAsync(newRoutes, currentProfile, outputDevices);
             if (warnings.Count > 0 && _autoProfileSettings.ShowAutoProfileNotifications)
             {
-                ShowTrayNotification("앱별 출력 적용 일부 실패", string.Join("\n", warnings));
+                ShowTrayNotification(Loc.T("앱별 출력 적용 일부 실패"), string.Join("\n", warnings));
             }
         }
         finally
@@ -514,11 +515,11 @@ public partial class MainWindow
         AppLog.Info("MainWindow", $"프로필 단축키 입력 profileId={profileId}");
         if (IsSettingsWindowOpenOrOpening())
         {
-            ShowTrayNotification("프로필 적용 보류", "설정 창이 열려 있어 단축키 프로필을 적용하지 않았습니다.");
+            ShowTrayNotification(Loc.T("프로필 적용 보류"), Loc.T("설정 창이 열려 있어 단축키 프로필을 적용하지 않았습니다."));
             return;
         }
 
-        _ = ApplyAudioProfileCoreAsync(profileId, ProfileApplySource.Hotkey, "단축키");
+        _ = ApplyAudioProfileCoreAsync(profileId, ProfileApplySource.Hotkey, Loc.T("단축키"));
     }
 
     private bool IsSettingsWindowOpenOrOpening()
@@ -537,7 +538,7 @@ public partial class MainWindow
         if (_isProfileApplying)
         {
             AppLog.Info("MainWindow", $"프로필 적용 요청 무시: 다른 적용 진행 중 profileId={profileId} source={source}");
-            return new ProfileApplyResult(false, string.Empty, [], "다른 프로필을 적용하는 중입니다. 잠시 후 다시 시도해 주세요.");
+            return new ProfileApplyResult(false, string.Empty, [], Loc.T("다른 프로필을 적용하는 중입니다. 잠시 후 다시 시도해 주세요."));
         }
 
         _isProfileApplying = true;
@@ -547,7 +548,7 @@ public partial class MainWindow
             var currentSettings = _settingsService.Load();
             var profile = currentSettings.AudioProfiles.FirstOrDefault(item =>
                 string.Equals(item.Id, profileId, StringComparison.Ordinal))
-                ?? throw new InvalidOperationException("선택한 프로필을 설정 파일에서 찾지 못했습니다.");
+                ?? throw new InvalidOperationException(Loc.T("선택한 프로필을 설정 파일에서 찾지 못했습니다."));
 
             AppLog.Info(
                 "MainWindow",
@@ -566,7 +567,7 @@ public partial class MainWindow
                 _trayMenuService.InvalidateMenu();
                 if (!await ReloadViewModelAsync($"profile_applied source={source}"))
                 {
-                    warnings.Add("화면 새로고침에 실패했습니다. 장치 다시 읽기를 실행해 주세요.");
+                    warnings.Add(Loc.T("화면 새로고침에 실패했습니다. 장치 다시 읽기를 실행해 주세요."));
                 }
             }
 
@@ -597,7 +598,7 @@ public partial class MainWindow
             AppLog.Error("MainWindow", $"프로필 적용 실패 source={source} profileId={profileId}", exception);
             if (source is ProfileApplySource.AutoRule or ProfileApplySource.Hotkey or ProfileApplySource.Command)
             {
-                ShowTrayNotification("프로필 적용 실패", exception.Message);
+                ShowTrayNotification(Loc.T("프로필 적용 실패"), exception.Message);
             }
 
             return new ProfileApplyResult(false, string.Empty, [], exception.Message);
@@ -623,14 +624,14 @@ public partial class MainWindow
 
         var title = source switch
         {
-            ProfileApplySource.AutoRule => "자동 프로필 전환",
-            ProfileApplySource.Hotkey => "단축키 프로필 적용",
-            ProfileApplySource.Command => "명령 프로필 적용",
-            _ => "프로필 적용"
+            ProfileApplySource.AutoRule => Loc.T("자동 프로필 전환"),
+            ProfileApplySource.Hotkey => Loc.T("단축키 프로필 적용"),
+            ProfileApplySource.Command => Loc.T("명령 프로필 적용"),
+            _ => Loc.T("프로필 적용 완료")
         };
         var text = source == ProfileApplySource.AutoRule
             ? $"{profileName} - {reason}"
-            : $"{profileName} 프로필을 적용했습니다.";
+            : Loc.F("{0} 프로필을 적용했습니다.", profileName);
         if (warnings.Count > 0)
         {
             text += "\n" + string.Join("\n", warnings);
@@ -660,14 +661,14 @@ public partial class MainWindow
                 profile.KnownDeviceNames);
             if (choice.Device is null)
             {
-                warnings.Add($"출력 장치 {choice.RequestedName}와 대체 장치가 모두 없어 기본 출력을 바꾸지 않았습니다.");
+                warnings.Add(Loc.F("출력 장치 {0}와 대체 장치가 모두 없어 기본 출력을 바꾸지 않았습니다.", choice.RequestedName));
                 AppLog.Warn("MainWindow", $"프로필 기본 출력 장치 없음 deviceId={profile.DefaultOutputDeviceId}");
                 return;
             }
 
             if (choice.UsedFallback)
             {
-                warnings.Add($"{choice.RequestedName}가 없어 {choice.Device.Name}로 대신 출력합니다.");
+                warnings.Add(Loc.F("{0}가 없어 {1}로 대신 출력합니다.", choice.RequestedName, choice.Device.Name));
             }
 
             if (choice.Device.IsDefault)
@@ -682,7 +683,7 @@ public partial class MainWindow
         }
         catch (Exception exception)
         {
-            warnings.Add($"기본 출력 장치를 바꾸지 못했습니다: {exception.Message}");
+            warnings.Add(Loc.F("기본 출력 장치를 바꾸지 못했습니다: {0}", exception.Message));
             AppLog.Warn("MainWindow", $"프로필 기본 출력 장치 변경 실패 deviceId={profile.DefaultOutputDeviceId}", exception);
         }
     }
@@ -706,14 +707,14 @@ public partial class MainWindow
                 profile.KnownDeviceNames);
             if (choice.Device is null)
             {
-                warnings.Add($"마이크 {choice.RequestedName}와 대체 장치가 모두 없어 기본 입력을 바꾸지 않았습니다.");
+                warnings.Add(Loc.F("마이크 {0}와 대체 장치가 모두 없어 기본 입력을 바꾸지 않았습니다.", choice.RequestedName));
                 AppLog.Warn("MainWindow", $"프로필 기본 입력 장치 없음 deviceId={profile.DefaultInputDeviceId}");
                 return;
             }
 
             if (choice.UsedFallback)
             {
-                warnings.Add($"마이크 {choice.RequestedName}가 없어 {choice.Device.Name}를 대신 씁니다.");
+                warnings.Add(Loc.F("마이크 {0}가 없어 {1}를 대신 씁니다.", choice.RequestedName, choice.Device.Name));
             }
 
             if (choice.Device.IsDefault)
@@ -726,7 +727,7 @@ public partial class MainWindow
         }
         catch (Exception exception)
         {
-            warnings.Add($"기본 입력 장치를 바꾸지 못했습니다: {exception.Message}");
+            warnings.Add(Loc.F("기본 입력 장치를 바꾸지 못했습니다: {0}", exception.Message));
             AppLog.Warn("MainWindow", $"프로필 기본 입력 장치 변경 실패 deviceId={profile.DefaultInputDeviceId}", exception);
         }
     }
@@ -769,7 +770,7 @@ public partial class MainWindow
             }
             catch (Exception exception)
             {
-                warnings.Add($"{device.Name} 볼륨·음소거를 바꾸지 못했습니다: {exception.Message}");
+                warnings.Add(Loc.F("{0} 볼륨·음소거를 바꾸지 못했습니다: {1}", device.Name, exception.Message));
                 AppLog.Warn("MainWindow", $"프로필 장치 볼륨 적용 실패 deviceId={device.Id}", exception);
             }
         }
@@ -804,14 +805,14 @@ public partial class MainWindow
                     profile.KnownDeviceNames);
                 if (choice.Device is null)
                 {
-                    warnings.Add($"{processName}: {choice.RequestedName}와 대체 장치가 없어 Windows 기본 장치를 따릅니다.");
+                    warnings.Add(Loc.F("{0}: {1}와 대체 장치가 없어 Windows 기본 장치를 따릅니다.", processName, choice.RequestedName));
                     targetDeviceId = string.Empty;
                 }
                 else
                 {
                     if (choice.UsedFallback)
                     {
-                        warnings.Add($"{processName}: {choice.RequestedName}가 없어 {choice.Device.Name}로 보냅니다.");
+                        warnings.Add(Loc.F("{0}: {1}가 없어 {2}로 보냅니다.", processName, choice.RequestedName, choice.Device.Name));
                     }
 
                     targetDeviceId = choice.Device.Id;
@@ -829,7 +830,7 @@ public partial class MainWindow
             }
             catch (Exception exception)
             {
-                warnings.Add($"{processName} 출력 변경 실패: {exception.Message}");
+                warnings.Add(Loc.F("{0} 출력 변경 실패: {1}", processName, exception.Message));
                 AppLog.Warn("MainWindow", $"앱별 출력 적용 실패 processName={processName}", exception);
             }
         }

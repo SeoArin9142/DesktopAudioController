@@ -1,4 +1,5 @@
 using DesktopAudioController.Models;
+using DesktopAudioController.Localization;
 
 namespace DesktopAudioController.Services;
 
@@ -76,7 +77,7 @@ internal static class ProfileDeviceResolver
     {
         return devices.FirstOrDefault(device => device.Id == deviceId)?.Name
             ?? FindKnownName(deviceId, knownNames)
-            ?? "알 수 없는 장치";
+            ?? Loc.T("알 수 없는 장치");
     }
 
     /// <summary>
