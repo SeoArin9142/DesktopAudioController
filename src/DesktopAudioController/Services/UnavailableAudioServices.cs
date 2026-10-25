@@ -34,6 +34,11 @@ internal static class UnavailableAudioServices
             return [];
         }
 
+        public IReadOnlyList<AudioDeviceInfo> GetAvailableInputDevices()
+        {
+            return [];
+        }
+
         public void SetVolume(string deviceId, int volume)
         {
             throw CreateUnavailableException();

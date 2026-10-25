@@ -13,6 +13,11 @@ public interface IAudioDeviceCatalogService
     IReadOnlyList<AudioDeviceInfo> GetAvailableOutputDevices();
 
     /// <summary>
+    /// 현재 사용 가능한 입력(마이크) 장치 목록을 반환합니다. 프로필의 기본 입력 장치 선택에 씁니다.
+    /// </summary>
+    IReadOnlyList<AudioDeviceInfo> GetAvailableInputDevices();
+
+    /// <summary>
     /// 지정한 장치의 마스터 볼륨을 설정합니다.
     /// </summary>
     void SetVolume(string deviceId, int volume);

@@ -20,6 +20,8 @@ public sealed class SettingsViewModel : ObservableObject
         public required AppSettings Settings { get; init; }
 
         public IReadOnlyList<string> RunningProcessNames { get; init; } = [];
+
+        public IReadOnlyList<AudioDeviceInfo> InputDevices { get; init; } = [];
     }
 
     // 설정 파일 입출력을 담당하는 서비스입니다.
@@ -79,6 +81,15 @@ public sealed class SettingsViewModel : ObservableObject
     // 선택한 프로필의 단축키 편집 값입니다.
     private string _selectedProfileHotkey = string.Empty;
 
+    // 선택한 프로필의 대체 출력 장치 1·2, 기본 입력 장치, 대체 입력 장치 편집 값입니다.
+    private string _selectedProfileOutputFallback1 = string.Empty;
+    private string _selectedProfileOutputFallback2 = string.Empty;
+    private string _selectedProfileDefaultInputDeviceId = string.Empty;
+    private string _selectedProfileInputFallback1 = string.Empty;
+
+    // 마지막으로 읽은 입력 장치 목록입니다. 장치 이름 기록에 씁니다.
+    private IReadOnlyList<AudioDeviceInfo> _inputDevices = [];
+
     // 자동 프로필 전환 사용 여부의 내부 필드입니다.
     private bool _autoProfileSwitchEnabled;
 
@@ -125,6 +136,65 @@ public sealed class SettingsViewModel : ObservableObject
     /// 앱별 출력 대상 장치 선택지입니다. 첫 항목은 "Windows 기본 장치 따름"입니다.
     /// </summary>
     public ObservableCollection<DeviceOptionViewModel> RouteDeviceOptions { get; } = [];
+
+    /// <summary>
+    /// 대체 출력 장치 선택지입니다. 첫 항목은 "(없음)"입니다.
+    /// </summary>
+    public ObservableCollection<DeviceOptionViewModel> OutputFallbackOptions { get; } = [];
+
+    /// <summary>
+    /// 기본 입력(마이크) 장치 선택지입니다. 첫 항목은 "(바꾸지 않음)"입니다.
+    /// </summary>
+    public ObservableCollection<DeviceOptionViewModel> InputDeviceOptions { get; } = [];
+
+    /// <summary>
+    /// 대체 입력 장치 선택지입니다. 첫 항목은 "(없음)"입니다.
+    /// </summary>
+    public ObservableCollection<DeviceOptionViewModel> InputFallbackOptions { get; } = [];
+
+    /// <summary>
+    /// 장치 볼륨·음소거 줄에서 고를 출력 장치입니다.
+    /// </summary>
+    public ObservableCollection<DeviceOptionViewModel> LevelDeviceOptions { get; } = [];
+
+    /// <summary>
+    /// 장치 음소거 선택지입니다.
+    /// </summary>
+    public IReadOnlyList<MuteOptionViewModel> MuteOptions { get; } =
+    [
+        new(0, "음소거 그대로"),
+        new(1, "음소거"),
+        new(2, "음소거 해제")
+    ];
+
+    /// <summary>
+    /// 선택한 프로필의 장치 볼륨·음소거 목록입니다.
+    /// </summary>
+    public ObservableCollection<DeviceLevelViewModel> SelectedProfileDeviceLevels { get; } = [];
+
+    public string SelectedProfileOutputFallback1
+    {
+        get => _selectedProfileOutputFallback1;
+        set => SetProperty(ref _selectedProfileOutputFallback1, value ?? string.Empty);
+    }
+
+    public string SelectedProfileOutputFallback2
+    {
+        get => _selectedProfileOutputFallback2;
+        set => SetProperty(ref _selectedProfileOutputFallback2, value ?? string.Empty);
+    }
+
+    public string SelectedProfileDefaultInputDeviceId
+    {
+        get => _selectedProfileDefaultInputDeviceId;
+        set => SetProperty(ref _selectedProfileDefaultInputDeviceId, value ?? string.Empty);
+    }
+
+    public string SelectedProfileInputFallback1
+    {
+        get => _selectedProfileInputFallback1;
+        set => SetProperty(ref _selectedProfileInputFallback1, value ?? string.Empty);
+    }
 
     /// <summary>
     /// 선택한 프로필의 앱별 출력 목록입니다.
@@ -365,7 +435,13 @@ public sealed class SettingsViewModel : ObservableObject
         RequiresRestartToEnableDebugLogs = false;
         var currentSettings = _settingsService.Load();
         var savePlan = BuildSavePlan(currentSettings);
-        AutoProfileSettingsValidator.ThrowIfInvalid(savePlan.Settings);
+        var problems = AutoProfileSettingsValidator.Validate(savePlan.Settings)
+            .Concat(_profileDetailEdits.Values.SelectMany(edit => edit.Problems))
+            .ToList();
+        if (problems.Count > 0)
+        {
+            throw new SettingsValidationException(problems);
+        }
         if (savePlan.PreservedConfiguredVisibleDevices)
         {
             AppLog.Warn(
@@ -519,7 +595,8 @@ public sealed class SettingsViewModel : ObservableObject
         {
             Settings = _settingsService.Load(),
             Devices = _audioDeviceCatalogService.GetAvailableOutputDevices().ToList(),
-            RunningProcessNames = ReadWindowedProcessNames()
+            RunningProcessNames = ReadWindowedProcessNames(),
+            InputDevices = ReadInputDevices()
         };
     }
 
@@ -551,6 +628,11 @@ public sealed class SettingsViewModel : ObservableObject
         IncludePreReleaseUpdates = snapshot.Settings.IncludePreReleaseUpdates;
         _loadedEnableDebugLogs = snapshot.Settings.EnableDebugLogs;
         EnableDebugLogs = snapshot.Settings.EnableDebugLogs;
+        if (snapshot.InputDevices.Count > 0 || _inputDevices.Count == 0)
+        {
+            _inputDevices = snapshot.InputDevices;
+        }
+
         RefreshDeviceOptions(snapshot.Devices);
         if (snapshot.RunningProcessNames.Count > 0)
         {
@@ -619,6 +701,17 @@ public sealed class SettingsViewModel : ObservableObject
             profile.DefaultOutputDeviceId = edit.DefaultOutputDeviceId;
             profile.ProgramOutputRoutes = AudioProfileStore.CloneProgramOutputRoutes(edit.ProgramOutputRoutes);
             profile.Hotkey = edit.Hotkey;
+            profile.OutputFallbackDeviceIds = [.. edit.OutputFallbackDeviceIds];
+            profile.DefaultInputDeviceId = edit.DefaultInputDeviceId;
+            profile.InputFallbackDeviceIds = [.. edit.InputFallbackDeviceIds];
+            profile.DeviceLevels = AudioProfileStore.CloneDeviceLevels(edit.DeviceLevels);
+        }
+
+        // 다른 PC 로 옮겨 장치 ID 가 바뀌어도 이름으로 다시 찾을 수 있게 장치 이름을 함께 저장합니다.
+        var knownDevices = BuildCurrentDeviceSnapshot().Concat(_inputDevices).ToList();
+        foreach (var profile in settings.AudioProfiles)
+        {
+            profile.KnownDeviceNames = ProfileDeviceResolver.BuildKnownNames(profile, knownDevices);
         }
 
         settings.AutoProfileSwitchEnabled = AutoProfileSwitchEnabled;
@@ -725,35 +818,137 @@ public sealed class SettingsViewModel : ObservableObject
                 })
                 .Where(route => route.ProcessName.Length > 0)
                 .ToList(),
-            Hotkey = SelectedProfileHotkey.Trim()
+            Hotkey = SelectedProfileHotkey.Trim(),
+            OutputFallbackDeviceIds = new[] { SelectedProfileOutputFallback1, SelectedProfileOutputFallback2 }
+                .Where(deviceId => !string.IsNullOrWhiteSpace(deviceId))
+                .Distinct(StringComparer.Ordinal)
+                .ToList(),
+            DefaultInputDeviceId = SelectedProfileDefaultInputDeviceId,
+            InputFallbackDeviceIds = string.IsNullOrWhiteSpace(SelectedProfileInputFallback1) ? [] : [SelectedProfileInputFallback1],
+            DeviceLevels = BuildDeviceLevels(out var levelProblems),
+            Problems = levelProblems
         };
+    }
+
+    private List<ProfileDeviceLevel> BuildDeviceLevels(out List<string> problems)
+    {
+        problems = [];
+        var levels = new List<ProfileDeviceLevel>();
+        var profileName = SelectedAudioProfile?.Name ?? string.Empty;
+        foreach (var row in SelectedProfileDeviceLevels)
+        {
+            if (string.IsNullOrWhiteSpace(row.DeviceId))
+            {
+                continue;
+            }
+
+            int? volume = null;
+            var volumeText = row.VolumeText.Trim().TrimEnd('%').Trim();
+            if (volumeText.Length > 0)
+            {
+                if (!int.TryParse(volumeText, out var parsedVolume) || parsedVolume is < 0 or > 100)
+                {
+                    problems.Add($"프로필 '{profileName}' 장치 볼륨 '{row.VolumeText}': 0~100 사이 숫자로 적거나 비워 두세요.");
+                    continue;
+                }
+
+                volume = parsedVolume;
+            }
+
+            if (volume is null && row.IsMuted is null)
+            {
+                continue;
+            }
+
+            levels.Add(new ProfileDeviceLevel { DeviceId = row.DeviceId, Volume = volume, IsMuted = row.IsMuted });
+        }
+
+        return levels;
+    }
+
+    public void AddSelectedProfileDeviceLevel()
+    {
+        if (SelectedAudioProfile is null)
+        {
+            return;
+        }
+
+        SelectedProfileDeviceLevels.Add(new DeviceLevelViewModel
+        {
+            DeviceId = LevelDeviceOptions.FirstOrDefault()?.Id ?? string.Empty
+        });
+    }
+
+    public void RemoveSelectedProfileDeviceLevel(DeviceLevelViewModel level)
+    {
+        SelectedProfileDeviceLevels.Remove(level);
     }
 
     private void LoadSelectedProfileDetail()
     {
         SelectedProfileRoutes.Clear();
+        SelectedProfileDeviceLevels.Clear();
         _editingProfileId = SelectedAudioProfile?.Id;
         if (_editingProfileId is null)
         {
             SelectedProfileDefaultDeviceId = string.Empty;
             SelectedProfileHotkey = string.Empty;
+            SelectedProfileOutputFallback1 = string.Empty;
+            SelectedProfileOutputFallback2 = string.Empty;
+            SelectedProfileDefaultInputDeviceId = string.Empty;
+            SelectedProfileInputFallback1 = string.Empty;
             return;
         }
 
         if (!_profileDetailEdits.TryGetValue(_editingProfileId, out var edit))
         {
             _profilesById.TryGetValue(_editingProfileId, out var profile);
+            var knownNames = profile?.KnownDeviceNames ?? [];
+            var outputDevices = BuildCurrentDeviceSnapshot();
+
+            // 다른 PC 에서 가져온 프로필이면 장치 ID 가 달라서, 저장해 둔 이름으로 지금 장치를 다시 찾아 넣습니다.
+            string Remap(string deviceId, IReadOnlyList<AudioDeviceInfo> devices) =>
+                RemapDeviceId(deviceId, devices, knownNames);
+
             edit = new ProfileDetailEdit
             {
-                DefaultOutputDeviceId = profile?.DefaultOutputDeviceId ?? string.Empty,
-                ProgramOutputRoutes = AudioProfileStore.CloneProgramOutputRoutes(profile?.ProgramOutputRoutes),
-                Hotkey = profile?.Hotkey ?? string.Empty
+                DefaultOutputDeviceId = Remap(profile?.DefaultOutputDeviceId ?? string.Empty, outputDevices),
+                ProgramOutputRoutes = AudioProfileStore.CloneProgramOutputRoutes(profile?.ProgramOutputRoutes)
+                    .Select(route => new ProgramOutputRoute
+                    {
+                        ProcessName = route.ProcessName,
+                        TargetDeviceId = Remap(route.TargetDeviceId, outputDevices)
+                    })
+                    .ToList(),
+                Hotkey = profile?.Hotkey ?? string.Empty,
+                OutputFallbackDeviceIds = (profile?.OutputFallbackDeviceIds ?? []).Select(deviceId => Remap(deviceId, outputDevices)).ToList(),
+                DefaultInputDeviceId = Remap(profile?.DefaultInputDeviceId ?? string.Empty, _inputDevices),
+                InputFallbackDeviceIds = (profile?.InputFallbackDeviceIds ?? []).Select(deviceId => Remap(deviceId, _inputDevices)).ToList(),
+                DeviceLevels = AudioProfileStore.CloneDeviceLevels(profile?.DeviceLevels)
+                    .Select(level => new ProfileDeviceLevel
+                    {
+                        DeviceId = Remap(level.DeviceId, outputDevices),
+                        Volume = level.Volume,
+                        IsMuted = level.IsMuted
+                    })
+                    .ToList()
             };
         }
 
         EnsureDeviceOption(DefaultDeviceOptions, edit.DefaultOutputDeviceId);
         SelectedProfileDefaultDeviceId = edit.DefaultOutputDeviceId;
         SelectedProfileHotkey = edit.Hotkey;
+        var outputFallback1 = edit.OutputFallbackDeviceIds.ElementAtOrDefault(0) ?? string.Empty;
+        var outputFallback2 = edit.OutputFallbackDeviceIds.ElementAtOrDefault(1) ?? string.Empty;
+        EnsureDeviceOption(OutputFallbackOptions, outputFallback1);
+        EnsureDeviceOption(OutputFallbackOptions, outputFallback2);
+        SelectedProfileOutputFallback1 = outputFallback1;
+        SelectedProfileOutputFallback2 = outputFallback2;
+        EnsureDeviceOption(InputDeviceOptions, edit.DefaultInputDeviceId);
+        SelectedProfileDefaultInputDeviceId = edit.DefaultInputDeviceId;
+        var inputFallback1 = edit.InputFallbackDeviceIds.ElementAtOrDefault(0) ?? string.Empty;
+        EnsureDeviceOption(InputFallbackOptions, inputFallback1);
+        SelectedProfileInputFallback1 = inputFallback1;
         foreach (var route in edit.ProgramOutputRoutes)
         {
             EnsureDeviceOption(RouteDeviceOptions, route.TargetDeviceId);
@@ -763,19 +958,66 @@ public sealed class SettingsViewModel : ObservableObject
                 TargetDeviceId = route.TargetDeviceId
             });
         }
+
+        foreach (var level in edit.DeviceLevels)
+        {
+            EnsureDeviceOption(LevelDeviceOptions, level.DeviceId);
+            SelectedProfileDeviceLevels.Add(new DeviceLevelViewModel
+            {
+                DeviceId = level.DeviceId,
+                VolumeText = level.Volume?.ToString() ?? string.Empty,
+                IsMuted = level.IsMuted
+            });
+        }
+    }
+
+    /// <summary>
+    /// 지금 목록에 없는 장치 ID 를 저장된 장치 이름으로 다시 찾습니다. 못 찾으면 원래 ID 를 둡니다.
+    /// </summary>
+    private static string RemapDeviceId(string deviceId, IReadOnlyList<AudioDeviceInfo> devices, IEnumerable<KnownDeviceName> knownNames)
+    {
+        if (string.IsNullOrWhiteSpace(deviceId) || devices.Any(device => device.Id == deviceId))
+        {
+            return deviceId;
+        }
+
+        var knownName = knownNames.FirstOrDefault(name => name.DeviceId == deviceId)?.Name;
+        if (string.IsNullOrWhiteSpace(knownName))
+        {
+            return deviceId;
+        }
+
+        var normalizedName = ProfileCommandLine.NormalizeName(knownName);
+        return devices.FirstOrDefault(device => ProfileCommandLine.NormalizeName(device.Name) == normalizedName)?.Id ?? deviceId;
     }
 
     private void RefreshDeviceOptions(IReadOnlyList<AudioDeviceInfo> devices)
     {
         DefaultDeviceOptions.Clear();
         RouteDeviceOptions.Clear();
+        OutputFallbackOptions.Clear();
+        LevelDeviceOptions.Clear();
+        InputDeviceOptions.Clear();
+        InputFallbackOptions.Clear();
         DefaultDeviceOptions.Add(new DeviceOptionViewModel(string.Empty, "(바꾸지 않음)"));
         RouteDeviceOptions.Add(new DeviceOptionViewModel(string.Empty, "Windows 기본 장치 따름"));
+        OutputFallbackOptions.Add(new DeviceOptionViewModel(string.Empty, "(없음)"));
+        InputDeviceOptions.Add(new DeviceOptionViewModel(string.Empty, "(바꾸지 않음)"));
+        InputFallbackOptions.Add(new DeviceOptionViewModel(string.Empty, "(없음)"));
         foreach (var device in devices.OrderBy(device => device.Name, StringComparer.CurrentCultureIgnoreCase))
         {
             var name = device.IsConnected ? device.Name : $"{device.Name} (연결 안 됨)";
             DefaultDeviceOptions.Add(new DeviceOptionViewModel(device.Id, name));
             RouteDeviceOptions.Add(new DeviceOptionViewModel(device.Id, name));
+            OutputFallbackOptions.Add(new DeviceOptionViewModel(device.Id, name));
+            LevelDeviceOptions.Add(new DeviceOptionViewModel(device.Id, name));
+        }
+
+        foreach (var device in _inputDevices.OrderBy(device => device.Name, StringComparer.CurrentCultureIgnoreCase))
+        {
+            var name = device.IsConnected ? device.Name : $"{device.Name} (연결 안 됨)";
+            InputDeviceOptions.Add(new DeviceOptionViewModel(device.Id, name));
+            InputFallbackOptions.Add(new DeviceOptionViewModel(device.Id, name));
         }
     }
 
@@ -790,6 +1032,19 @@ public sealed class SettingsViewModel : ObservableObject
         }
 
         options.Add(new DeviceOptionViewModel(deviceId, "(현재 없는 장치)"));
+    }
+
+    private IReadOnlyList<AudioDeviceInfo> ReadInputDevices()
+    {
+        try
+        {
+            return _audioDeviceCatalogService.GetAvailableInputDevices();
+        }
+        catch (Exception exception)
+        {
+            AppLog.Warn("SettingsViewModel", "입력 장치 목록 읽기 실패", exception);
+            return [];
+        }
     }
 
     /// <summary>

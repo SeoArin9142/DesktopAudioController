@@ -8,15 +8,18 @@ namespace DesktopAudioController.Services;
 /// </summary>
 internal static class AudioDeviceProbeWorker
 {
-    public static int Run(string outputPath)
+    public static int Run(string outputPath, bool probeInput = false)
     {
         var stopwatch = Stopwatch.StartNew();
-        AppLog.Info("AudioDeviceProbeWorker", $"오디오 probe 시작 outputPath={outputPath}");
+        AppLog.Info("AudioDeviceProbeWorker", $"오디오 probe 시작 outputPath={outputPath} input={probeInput}");
 
         try
         {
             using var service = new NativeAudioDeviceCatalogService();
-            var devices = service.GetAvailableOutputDevices()
+            var sourceDevices = probeInput
+                ? service.GetAvailableInputDevices()
+                : service.GetAvailableOutputDevices();
+            var devices = sourceDevices
                 .Select(device => new AudioDeviceInfo
                 {
                     Id = device.Id,

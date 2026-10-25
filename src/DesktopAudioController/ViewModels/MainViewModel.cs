@@ -1153,6 +1153,39 @@ public sealed class MainViewModel : ObservableObject
     }
 
     /// <summary>
+    /// 메인 화면에 표시하지 않는 장치도 명령·프로필로 음소거를 바꿀 수 있게 서비스로 바로 전달합니다.
+    /// </summary>
+    public Task SetOutputDeviceMutedAsync(string deviceId, bool muted)
+    {
+        return Task.Run(() => _audioDeviceCatalogService.SetMuted(deviceId, muted));
+    }
+
+    /// <summary>
+    /// 프로필에 저장한 장치 볼륨을 적용합니다.
+    /// </summary>
+    public Task SetOutputDeviceVolumeAsync(string deviceId, int volume)
+    {
+        return Task.Run(() => _audioDeviceCatalogService.SetVolume(deviceId, Math.Clamp(volume, 0, 100)));
+    }
+
+    /// <summary>
+    /// 입력(마이크) 장치 목록을 가져옵니다.
+    /// </summary>
+    public Task<IReadOnlyList<AudioDeviceInfo>> GetAvailableInputDevicesAsync()
+    {
+        return Task.Run(_audioDeviceCatalogService.GetAvailableInputDevices);
+    }
+
+    /// <summary>
+    /// 기본 입력·기본 통신 입력 장치를 바꿉니다. 출력과 같은 PolicyConfig 경로를 씁니다.
+    /// </summary>
+    public void SetDefaultInputDevice(string deviceId)
+    {
+        AppLog.Info("MainViewModel", $"기본 입력 장치 서비스 전달 deviceId={deviceId}");
+        _audioDeviceCatalogService.SetAsDefault(deviceId);
+    }
+
+    /// <summary>
     /// 세션 볼륨 변경을 서비스 계층으로 전달합니다.
     /// </summary>
     private void OnSessionVolumeChanged(string deviceId, string sessionId, int volume)

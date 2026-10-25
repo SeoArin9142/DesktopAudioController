@@ -89,6 +89,48 @@ public sealed class AutoProfileRuleViewModel : ObservableObject
 }
 
 /// <summary>
+/// 장치 음소거를 프로필에서 어떻게 할지 고르는 선택지입니다. Mode 0 = 그대로, 1 = 음소거, 2 = 음소거 해제.
+/// </summary>
+public sealed record MuteOptionViewModel(int Mode, string Name);
+
+/// <summary>
+/// 프로필 편집 영역의 장치 볼륨·음소거 한 줄입니다. 볼륨 칸이 비어 있으면 볼륨은 그대로 둡니다.
+/// </summary>
+public sealed class DeviceLevelViewModel : ObservableObject
+{
+    private string _deviceId = string.Empty;
+    private string _volumeText = string.Empty;
+    private int _muteMode;
+
+    public string DeviceId
+    {
+        get => _deviceId;
+        set => SetProperty(ref _deviceId, value ?? string.Empty);
+    }
+
+    public string VolumeText
+    {
+        get => _volumeText;
+        set => SetProperty(ref _volumeText, value ?? string.Empty);
+    }
+
+    /// <summary>
+    /// 콤보 상자는 null 값을 고를 수 없어 0(그대로)·1(음소거)·2(해제)로 둡니다.
+    /// </summary>
+    public int MuteMode
+    {
+        get => _muteMode;
+        set => SetProperty(ref _muteMode, value);
+    }
+
+    public bool? IsMuted
+    {
+        get => MuteMode switch { 1 => true, 2 => false, _ => null };
+        set => MuteMode = value switch { true => 1, false => 2, null => 0 };
+    }
+}
+
+/// <summary>
 /// 저장 전까지 프로필별로 들고 있는 편집 값입니다.
 /// </summary>
 internal sealed class ProfileDetailEdit
@@ -98,4 +140,17 @@ internal sealed class ProfileDetailEdit
     public List<ProgramOutputRoute> ProgramOutputRoutes { get; set; } = [];
 
     public string Hotkey { get; set; } = string.Empty;
+
+    public List<string> OutputFallbackDeviceIds { get; set; } = [];
+
+    public string DefaultInputDeviceId { get; set; } = string.Empty;
+
+    public List<string> InputFallbackDeviceIds { get; set; } = [];
+
+    public List<ProfileDeviceLevel> DeviceLevels { get; set; } = [];
+
+    /// <summary>
+    /// 볼륨 칸에 숫자가 아닌 값이 있을 때의 안내 문구입니다. 저장할 때 보여 줍니다.
+    /// </summary>
+    public List<string> Problems { get; set; } = [];
 }

@@ -11,6 +11,9 @@ internal static class AudioDeviceProbeCommand
     public const string ProbeOutputPathArgument = "--probe-output-path";
     public const string DebugLogArgument = "--debug-log";
 
+    // 출력 장치 대신 입력(마이크) 장치를 열거하라는 표시입니다.
+    public const string ProbeInputArgument = "--probe-input";
+
     public static bool TryParse(IReadOnlyList<string> args, out string outputPath)
     {
         outputPath = string.Empty;
@@ -42,14 +45,24 @@ internal static class AudioDeviceProbeCommand
         return hasProbeFlag && !string.IsNullOrWhiteSpace(outputPath);
     }
 
+    public static bool IsInputProbe(IReadOnlyList<string> args)
+    {
+        return args.Any(argument => string.Equals(argument, ProbeInputArgument, StringComparison.OrdinalIgnoreCase));
+    }
+
     public static bool HasDebugLogFlag(IReadOnlyList<string> args)
     {
         return args.Any(argument => string.Equals(argument, DebugLogArgument, StringComparison.OrdinalIgnoreCase));
     }
 
-    public static void Apply(ProcessStartInfo startInfo, string outputPath, bool debugLogEnabled = false)
+    public static void Apply(ProcessStartInfo startInfo, string outputPath, bool debugLogEnabled = false, bool probeInput = false)
     {
         startInfo.ArgumentList.Add(ProbeAudioArgument);
+        if (probeInput)
+        {
+            startInfo.ArgumentList.Add(ProbeInputArgument);
+        }
+
         if (debugLogEnabled)
         {
             startInfo.ArgumentList.Add(DebugLogArgument);

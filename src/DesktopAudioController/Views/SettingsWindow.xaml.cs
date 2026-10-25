@@ -473,6 +473,19 @@ public partial class SettingsWindow : Window
         }
     }
 
+    private void AddProfileDeviceLevelButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        _viewModel.AddSelectedProfileDeviceLevel();
+    }
+
+    private void RemoveProfileDeviceLevelButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: DeviceLevelViewModel level })
+        {
+            _viewModel.RemoveSelectedProfileDeviceLevel(level);
+        }
+    }
+
     private void AddAutoProfileRuleButton_OnClick(object sender, RoutedEventArgs e)
     {
         _viewModel.AddAutoProfileRule();

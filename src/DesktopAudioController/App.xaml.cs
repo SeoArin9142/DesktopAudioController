@@ -73,6 +73,9 @@ public partial class App : System.Windows.Application
     // 메인 창 생성 전에 활성화 요청이 오면 창이 준비된 뒤 복원하도록 보류합니다.
     private bool _pendingExternalActivationRequest;
 
+    // 메인 창 생성 전에 받은 명령(프로필 적용 등)입니다. 창이 준비되면 순서대로 실행합니다.
+    private readonly List<ProfileCommand> _pendingProfileCommands = [];
+
     // 현재 앱이 제한 모드인지 나타냅니다. 설정 저장 보호와 수동 복구 경로에서 사용합니다.
     private bool _isInDegradedMode;
 
@@ -119,7 +122,7 @@ public partial class App : System.Windows.Application
         // 워커 인수로 시작된 경우에는 창/단일 인스턴스/설정 UI를 만들지 않고 작업만 수행한 뒤 즉시 종료합니다.
         if (AudioDeviceProbeCommand.TryParse(e.Args, out var probeOutputPath))
         {
-            Shutdown(AudioDeviceProbeWorker.Run(probeOutputPath));
+            Shutdown(AudioDeviceProbeWorker.Run(probeOutputPath, AudioDeviceProbeCommand.IsInputProbe(e.Args)));
             return;
         }
 
@@ -135,10 +138,18 @@ public partial class App : System.Windows.Application
             return;
         }
 
-        if (!TryEnsurePrimaryInstance())
+        // --profile 같은 명령 인수입니다. 이미 실행 중이면 그 인스턴스에 명령만 넘기고 바로 끝납니다.
+        ProfileCommandLine.TryParse(e.Args, out var startupProfileCommand);
+        if (!TryEnsurePrimaryInstance(startupProfileCommand))
         {
             Shutdown();
             return;
+        }
+
+        if (startupProfileCommand is not null)
+        {
+            AppLog.Info("App", $"시작 인수 명령 보류 kind={startupProfileCommand.Kind} value={startupProfileCommand.Value}");
+            _pendingProfileCommands.Add(startupProfileCommand);
         }
 
         DispatcherUnhandledException += App_OnDispatcherUnhandledException;
@@ -215,12 +226,25 @@ public partial class App : System.Windows.Application
             previousRunIncident,
             startupViewModelResult.RequiresBackgroundRefresh);
         MainWindow = mainWindow;
+        if (startupProfileCommand is not null)
+        {
+            // 명령으로 처음 시작한 경우에는 창을 띄우지 않고 트레이로 조용히 시작합니다.
+            mainWindow.RequestStartHiddenForCommand();
+        }
+
         mainWindow.Show();
         if (_pendingExternalActivationRequest)
         {
             _pendingExternalActivationRequest = false;
             mainWindow.RestoreFromExternalActivation();
         }
+
+        foreach (var pendingCommand in _pendingProfileCommands)
+        {
+            mainWindow.QueueProfileCommand(pendingCommand);
+        }
+
+        _pendingProfileCommands.Clear();
 
         AppLog.Info("App", "메인 창 표시 완료");
         ScheduleAutomaticStartupRecoveryRetryIfNeeded(
@@ -731,24 +755,28 @@ public partial class App : System.Windows.Application
         }
     }
 
-    private bool TryEnsurePrimaryInstance()
+    private bool TryEnsurePrimaryInstance(ProfileCommand? startupProfileCommand)
     {
         try
         {
             _singleInstanceService = new SingleInstanceService();
             if (_singleInstanceService.TryAcquirePrimaryInstance())
             {
-                _singleInstanceService.StartActivationListener(HandleExternalActivationRequestAsync);
+                _singleInstanceService.StartActivationListener(HandleExternalActivationRequestAsync, HandleExternalProfileCommandAsync);
                 AppLog.Info("App", "단일 인스턴스 가드 활성화 완료");
                 return true;
             }
 
             AppLog.Warn("App", "이미 실행 중인 인스턴스 감지");
             var notified = _singleInstanceService
-                .TryNotifyExistingInstanceAsync(TimeSpan.FromSeconds(2))
+                .TryNotifyExistingInstanceAsync(TimeSpan.FromSeconds(2), startupProfileCommand)
                 .GetAwaiter()
                 .GetResult();
-            AppLog.Info("App", $"기존 인스턴스 활성화 요청 결과 success={notified}");
+            AppLog.Info(
+                "App",
+                startupProfileCommand is null
+                    ? $"기존 인스턴스 활성화 요청 결과 success={notified}"
+                    : $"기존 인스턴스 명령 전달 결과 kind={startupProfileCommand.Kind} success={notified}");
             return false;
         }
         catch (Exception exception)
@@ -758,6 +786,21 @@ public partial class App : System.Windows.Application
             _singleInstanceService = null;
             return true;
         }
+    }
+
+    private Task HandleExternalProfileCommandAsync(ProfileCommand command)
+    {
+        return Dispatcher.InvokeAsync(() =>
+        {
+            AppLog.Info("App", $"외부 명령 수신 kind={command.Kind} value={command.Value}");
+            if (MainWindow is MainWindow mainWindow)
+            {
+                mainWindow.QueueProfileCommand(command);
+                return;
+            }
+
+            _pendingProfileCommands.Add(command);
+        }).Task;
     }
 
     private Task HandleExternalActivationRequestAsync()

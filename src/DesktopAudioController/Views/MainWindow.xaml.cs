@@ -792,6 +792,16 @@ public partial class MainWindow : Window
             _ = RunStartupBackgroundRefreshLoopAsync();
         }
         ConfigureAutomaticSessionRefresh(restart: true);
+        Dispatcher.BeginInvoke(RunQueuedProfileCommands);
+
+        // 시작 안내 문구(캐시로 먼저 띄움 등) 때문에 창을 보이게 하지 않습니다. 첫 실행 설정창은 App 이 따로 엽니다.
+        if (_startHiddenForCommand && !_externalActivationRequested)
+        {
+            // 스트림덱 등에서 명령으로 처음 실행된 경우 창을 보이지 않고 트레이에서만 동작합니다.
+            AppLog.Info("MainWindow", "명령 실행으로 시작해 트레이로 숨김");
+            HideToTray();
+            return;
+        }
 
         if (_externalActivationRequested)
         {

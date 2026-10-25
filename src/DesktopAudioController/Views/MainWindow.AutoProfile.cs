@@ -17,6 +17,7 @@ public partial class MainWindow
     {
         MainWindow,
         Tray,
+        Command,
         SettingsWindow,
         AutoRule,
         Hotkey
@@ -59,6 +60,145 @@ public partial class MainWindow
 
     // 설정 창 때문에 자동 전환을 미뤘다는 로그를 한 번만 남기기 위한 플래그입니다.
     private bool _hasLoggedAutoProfileDeferral;
+
+    // 명령으로 처음 실행됐을 때 창을 띄우지 않고 트레이로 시작할지 여부입니다.
+    private bool _startHiddenForCommand;
+
+    // 창이 준비되기 전에 받은 명령입니다.
+    private readonly Queue<ProfileCommand> _queuedProfileCommands = new();
+
+    /// <summary>
+    /// 명령 인수로 처음 실행된 경우 Show 전에 호출해 창을 트레이에 숨긴 채 시작하게 합니다.
+    /// </summary>
+    public void RequestStartHiddenForCommand()
+    {
+        _startHiddenForCommand = true;
+    }
+
+    /// <summary>
+    /// 명령줄·파이프로 받은 프로필 적용/음소거 명령을 실행합니다. 창이 아직 준비 전이면 준비된 뒤 실행합니다.
+    /// </summary>
+    public void QueueProfileCommand(ProfileCommand command)
+    {
+        _queuedProfileCommands.Enqueue(command);
+        if (IsLoaded)
+        {
+            RunQueuedProfileCommands();
+        }
+    }
+
+    private void RunQueuedProfileCommands()
+    {
+        while (_queuedProfileCommands.Count > 0)
+        {
+            var command = _queuedProfileCommands.Dequeue();
+            _ = ExecuteProfileCommandAsync(command);
+        }
+    }
+
+    private async Task ExecuteProfileCommandAsync(ProfileCommand command)
+    {
+        AppLog.Info("MainWindow", $"명령 실행 kind={command.Kind} value={command.Value}");
+        if (IsSettingsWindowOpenOrOpening())
+        {
+            ShowTrayNotification("명령 보류", "설정 창이 열려 있어 명령을 실행하지 않았습니다. 설정 창을 닫은 뒤 다시 눌러 주세요.");
+            return;
+        }
+
+        // 버튼을 빠르게 연달아 눌러도 앞 적용이 끝난 뒤 순서대로 처리합니다.
+        for (var waited = 0; _isProfileApplying && waited < 100; waited++)
+        {
+            await Task.Delay(100);
+        }
+
+        try
+        {
+            switch (command.Kind)
+            {
+                case ProfileCommandKind.ApplyProfileByName:
+                case ProfileCommandKind.ApplyProfileByIndex:
+                    var profiles = GetProfilesInDisplayOrder(_settingsService.Load());
+                    var profile = FindProfileForCommand(profiles, command, out var error);
+                    if (profile is null)
+                    {
+                        AppLog.Warn("MainWindow", $"명령 프로필 찾기 실패 value={command.Value} reason={error}");
+                        ShowTrayNotification("프로필 명령 실패", error ?? "프로필을 찾지 못했습니다.");
+                        return;
+                    }
+
+                    var result = await ApplyAudioProfileCoreAsync(profile.Id, ProfileApplySource.Command, "명령");
+                    if (!result.Success)
+                    {
+                        ShowTrayNotification("프로필 적용 실패", result.ErrorMessage ?? "알 수 없는 오류");
+                    }
+
+                    return;
+
+                case ProfileCommandKind.ToggleDeviceMute:
+                    await ToggleDeviceMuteForCommandAsync(command.Value);
+                    return;
+            }
+        }
+        catch (Exception exception)
+        {
+            AppLog.Error("MainWindow", $"명령 실행 실패 kind={command.Kind}", exception);
+            ShowTrayNotification("명령 실패", exception.Message);
+        }
+    }
+
+    private static AudioProfile? FindProfileForCommand(IReadOnlyList<AudioProfile> profiles, ProfileCommand command, out string? error)
+    {
+        if (profiles.Count == 0)
+        {
+            error = "저장한 프로필이 없습니다.";
+            return null;
+        }
+
+        if (command.Kind == ProfileCommandKind.ApplyProfileByIndex)
+        {
+            if (int.TryParse(command.Value, out var index) && index >= 1 && index <= profiles.Count)
+            {
+                error = null;
+                return profiles[index - 1];
+            }
+
+            error = $"프로필 번호 '{command.Value}'가 없습니다. 1~{profiles.Count} 사이로 지정해 주세요.";
+            return null;
+        }
+
+        return ProfileCommandLine.FindByName(profiles, profile => profile.Name, command.Value, out error);
+    }
+
+    private async Task ToggleDeviceMuteForCommandAsync(string deviceName)
+    {
+        var devices = await _viewModel.GetAvailableOutputDevicesForSessionRoutingAsync();
+        var device = ProfileCommandLine.FindByName(devices.ToList(), item => item.Name, deviceName, out var error);
+        if (device is null)
+        {
+            AppLog.Warn("MainWindow", $"명령 음소거 장치 찾기 실패 value={deviceName} reason={error}");
+            ShowTrayNotification("음소거 명령 실패", error ?? "장치를 찾지 못했습니다.");
+            return;
+        }
+
+        var muted = !device.IsMuted;
+        AppLog.Info("MainWindow", $"명령 장치 음소거 deviceId={device.Id} name={device.Name} muted={muted}");
+        await _viewModel.SetOutputDeviceMutedAsync(device.Id, muted);
+        await RefreshStateViewAsync("command_toggle_mute");
+        if (_autoProfileSettings.ShowAutoProfileNotifications)
+        {
+            ShowTrayNotification("장치 음소거", $"{device.Name}: {(muted ? "음소거" : "음소거 해제")}");
+        }
+    }
+
+    /// <summary>
+    /// 메인 화면 버튼·트레이·--profile-index 가 같은 순서를 쓰도록 이름순으로 정렬합니다.
+    /// </summary>
+    private static List<AudioProfile> GetProfilesInDisplayOrder(AppSettings settings)
+    {
+        return settings.AudioProfiles
+            .OrderBy(profile => profile.Name, StringComparer.CurrentCultureIgnoreCase)
+            .ToList();
+    }
 
     private void InitializeAutoProfileFeatures()
     {
@@ -191,6 +331,8 @@ public partial class MainWindow
         }
 
         return new TrayMenuService.AutoProfileMenu(
+            currentProfile?.Id,
+            currentProfile?.Name,
             currentProfileText,
             settings.AutoProfileSwitchEnabled,
             _isAutoProfilePaused,
@@ -220,13 +362,14 @@ public partial class MainWindow
         _mainProfileBarSignature = signature;
         ProfileButtonsPanel.Children.Clear();
         ProfileEmptyText.Visibility = profiles.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
-        foreach (var profile in profiles)
+        for (var index = 0; index < profiles.Count; index++)
         {
+            var profile = profiles[index];
             var profileId = profile.Id;
             var isCurrent = string.Equals(profile.Id, _currentProfileId, StringComparison.Ordinal);
             var button = new System.Windows.Controls.Button
             {
-                Content = profile.Name,
+                Content = $"{index + 1}. {profile.Name}",
                 MinWidth = 96,
                 Padding = new Thickness(12, 4, 12, 4),
                 Margin = new Thickness(0, 0, 8, 4),
@@ -353,7 +496,8 @@ public partial class MainWindow
             AppLog.Info(
                 "MainWindow",
                 $"새로 실행된 프로그램에 프로필 앱별 출력 적용 profileId={currentProfile.Id} name={currentProfile.Name} processes=[{string.Join(", ", newRoutes.Select(route => route.ProcessName))}]");
-            var warnings = await ApplyProgramOutputRoutesAsync(newRoutes);
+            var outputDevices = await _viewModel.GetAvailableOutputDevicesForSessionRoutingAsync();
+            var warnings = await ApplyProgramOutputRoutesAsync(newRoutes, currentProfile, outputDevices);
             if (warnings.Count > 0 && _autoProfileSettings.ShowAutoProfileNotifications)
             {
                 ShowTrayNotification("앱별 출력 적용 일부 실패", string.Join("\n", warnings));
@@ -426,8 +570,11 @@ public partial class MainWindow
                 }
             }
 
-            await ApplyDefaultOutputDeviceAsync(profile, warnings);
-            warnings.AddRange(await ApplyProgramOutputRoutesAsync(profile.ProgramOutputRoutes));
+            var outputDevices = await _viewModel.GetAvailableOutputDevicesForSessionRoutingAsync();
+            ApplyDefaultOutputDevice(profile, outputDevices, warnings);
+            await ApplyDefaultInputDeviceAsync(profile, warnings);
+            await ApplyDeviceLevelsAsync(profile, outputDevices, warnings);
+            warnings.AddRange(await ApplyProgramOutputRoutesAsync(profile.ProgramOutputRoutes, profile, outputDevices));
 
             _currentProfileId = profile.Id;
             if (source is not ProfileApplySource.AutoRule)
@@ -444,7 +591,7 @@ public partial class MainWindow
         catch (Exception exception)
         {
             AppLog.Error("MainWindow", $"프로필 적용 실패 source={source} profileId={profileId}", exception);
-            if (source is ProfileApplySource.AutoRule or ProfileApplySource.Hotkey)
+            if (source is ProfileApplySource.AutoRule or ProfileApplySource.Hotkey or ProfileApplySource.Command)
             {
                 ShowTrayNotification("프로필 적용 실패", exception.Message);
             }
@@ -459,7 +606,7 @@ public partial class MainWindow
 
     private void NotifyProfileApplied(string profileName, ProfileApplySource source, string reason, IReadOnlyList<string> warnings)
     {
-        var isAutomatic = source is ProfileApplySource.AutoRule or ProfileApplySource.Hotkey;
+        var isAutomatic = source is ProfileApplySource.AutoRule or ProfileApplySource.Hotkey or ProfileApplySource.Command;
         if (isAutomatic && !_autoProfileSettings.ShowAutoProfileNotifications && warnings.Count == 0)
         {
             return;
@@ -474,6 +621,7 @@ public partial class MainWindow
         {
             ProfileApplySource.AutoRule => "자동 프로필 전환",
             ProfileApplySource.Hotkey => "단축키 프로필 적용",
+            ProfileApplySource.Command => "명령 프로필 적용",
             _ => "프로필 적용"
         };
         var text = source == ProfileApplySource.AutoRule
@@ -487,7 +635,13 @@ public partial class MainWindow
         ShowTrayNotification(title, text);
     }
 
-    private async Task ApplyDefaultOutputDeviceAsync(AudioProfile profile, List<string> warnings)
+    /// <summary>
+    /// 기본 출력 장치(기본 장치·기본 통신 장치 모두)를 바꿉니다. 없으면 대체 장치 순서대로 고릅니다.
+    /// </summary>
+    private void ApplyDefaultOutputDevice(
+        AudioProfile profile,
+        IReadOnlyList<AudioDeviceInfo> outputDevices,
+        List<string> warnings)
     {
         if (string.IsNullOrWhiteSpace(profile.DefaultOutputDeviceId))
         {
@@ -496,37 +650,137 @@ public partial class MainWindow
 
         try
         {
-            var devices = await _viewModel.GetAvailableOutputDevicesForSessionRoutingAsync();
-            var targetDevice = devices.FirstOrDefault(device =>
-                string.Equals(device.Id, profile.DefaultOutputDeviceId, StringComparison.Ordinal));
-            if (targetDevice is null)
+            var choice = ProfileDeviceResolver.ChooseFirstAvailable(
+                [profile.DefaultOutputDeviceId, .. profile.OutputFallbackDeviceIds],
+                outputDevices,
+                profile.KnownDeviceNames);
+            if (choice.Device is null)
             {
-                warnings.Add("기본 출력 장치가 연결돼 있지 않아 바꾸지 않았습니다.");
-                AppLog.Warn("MainWindow", $"프로필 기본 장치 없음 deviceId={profile.DefaultOutputDeviceId}");
+                warnings.Add($"출력 장치 {choice.RequestedName}와 대체 장치가 모두 없어 기본 출력을 바꾸지 않았습니다.");
+                AppLog.Warn("MainWindow", $"프로필 기본 출력 장치 없음 deviceId={profile.DefaultOutputDeviceId}");
                 return;
             }
 
-            if (targetDevice.IsDefault)
+            if (choice.UsedFallback)
+            {
+                warnings.Add($"{choice.RequestedName}가 없어 {choice.Device.Name}로 대신 출력합니다.");
+            }
+
+            if (choice.Device.IsDefault)
             {
                 return;
             }
 
-            AppLog.Info("MainWindow", $"프로필 기본 장치 변경 deviceId={targetDevice.Id} name={targetDevice.Name}");
-            _viewModel.SetDefaultOutputDevice(targetDevice.Id);
-            PromoteDefaultDeviceLocally(targetDevice.Id);
-            _ = RefreshAfterDefaultDeviceChangeAsync(targetDevice.Id);
+            AppLog.Info("MainWindow", $"프로필 기본 출력 장치 변경 deviceId={choice.Device.Id} name={choice.Device.Name} fallback={choice.UsedFallback}");
+            _viewModel.SetDefaultOutputDevice(choice.Device.Id);
+            PromoteDefaultDeviceLocally(choice.Device.Id);
+            _ = RefreshAfterDefaultDeviceChangeAsync(choice.Device.Id);
         }
         catch (Exception exception)
         {
             warnings.Add($"기본 출력 장치를 바꾸지 못했습니다: {exception.Message}");
-            AppLog.Warn("MainWindow", $"프로필 기본 장치 변경 실패 deviceId={profile.DefaultOutputDeviceId}", exception);
+            AppLog.Warn("MainWindow", $"프로필 기본 출력 장치 변경 실패 deviceId={profile.DefaultOutputDeviceId}", exception);
         }
     }
 
     /// <summary>
-    /// 앱별 출력 지정을 적용합니다. 실행 중이 아닌 프로그램은 건너뛰고, 나중에 켜지면 감시가 다시 적용합니다.
+    /// 기본 입력(마이크) 장치를 바꿉니다. 기본 장치·기본 통신 장치를 함께 바꿔 디스코드처럼 통신 장치를 쓰는 앱도 따라옵니다.
     /// </summary>
-    private async Task<List<string>> ApplyProgramOutputRoutesAsync(IReadOnlyList<ProgramOutputRoute> routes)
+    private async Task ApplyDefaultInputDeviceAsync(AudioProfile profile, List<string> warnings)
+    {
+        if (string.IsNullOrWhiteSpace(profile.DefaultInputDeviceId))
+        {
+            return;
+        }
+
+        try
+        {
+            var inputDevices = await _viewModel.GetAvailableInputDevicesAsync();
+            var choice = ProfileDeviceResolver.ChooseFirstAvailable(
+                [profile.DefaultInputDeviceId, .. profile.InputFallbackDeviceIds],
+                inputDevices,
+                profile.KnownDeviceNames);
+            if (choice.Device is null)
+            {
+                warnings.Add($"마이크 {choice.RequestedName}와 대체 장치가 모두 없어 기본 입력을 바꾸지 않았습니다.");
+                AppLog.Warn("MainWindow", $"프로필 기본 입력 장치 없음 deviceId={profile.DefaultInputDeviceId}");
+                return;
+            }
+
+            if (choice.UsedFallback)
+            {
+                warnings.Add($"마이크 {choice.RequestedName}가 없어 {choice.Device.Name}를 대신 씁니다.");
+            }
+
+            if (choice.Device.IsDefault)
+            {
+                return;
+            }
+
+            AppLog.Info("MainWindow", $"프로필 기본 입력 장치 변경 deviceId={choice.Device.Id} name={choice.Device.Name} fallback={choice.UsedFallback}");
+            await Task.Run(() => _viewModel.SetDefaultInputDevice(choice.Device.Id));
+        }
+        catch (Exception exception)
+        {
+            warnings.Add($"기본 입력 장치를 바꾸지 못했습니다: {exception.Message}");
+            AppLog.Warn("MainWindow", $"프로필 기본 입력 장치 변경 실패 deviceId={profile.DefaultInputDeviceId}", exception);
+        }
+    }
+
+    /// <summary>
+    /// 프로필에 저장한 장치 볼륨·음소거를 맞춥니다. 연결되지 않은 장치는 건너뜁니다.
+    /// </summary>
+    private async Task ApplyDeviceLevelsAsync(
+        AudioProfile profile,
+        IReadOnlyList<AudioDeviceInfo> outputDevices,
+        List<string> warnings)
+    {
+        if (profile.DeviceLevels.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var level in profile.DeviceLevels)
+        {
+            var device = ProfileDeviceResolver.Resolve(level.DeviceId, outputDevices, profile.KnownDeviceNames);
+            if (device is null)
+            {
+                AppLog.Info("MainWindow", $"프로필 장치 볼륨 건너뜀(연결 안 됨) deviceId={level.DeviceId}");
+                continue;
+            }
+
+            try
+            {
+                if (level.Volume is { } volume)
+                {
+                    await _viewModel.SetOutputDeviceVolumeAsync(device.Id, volume);
+                }
+
+                if (level.IsMuted is { } muted)
+                {
+                    await _viewModel.SetOutputDeviceMutedAsync(device.Id, muted);
+                }
+
+                AppLog.Info("MainWindow", $"프로필 장치 볼륨 적용 deviceId={device.Id} name={device.Name} volume={level.Volume?.ToString() ?? "유지"} muted={level.IsMuted?.ToString() ?? "유지"}");
+            }
+            catch (Exception exception)
+            {
+                warnings.Add($"{device.Name} 볼륨·음소거를 바꾸지 못했습니다: {exception.Message}");
+                AppLog.Warn("MainWindow", $"프로필 장치 볼륨 적용 실패 deviceId={device.Id}", exception);
+            }
+        }
+
+        _ = RefreshStateViewAsync("profile_device_levels");
+    }
+
+    /// <summary>
+    /// 앱별 출력 지정을 적용합니다. 대상 장치가 없으면 프로필의 대체 출력 장치 순서대로 고르고,
+    /// 실행 중이 아닌 프로그램은 건너뜁니다.
+    /// </summary>
+    private async Task<List<string>> ApplyProgramOutputRoutesAsync(
+        IReadOnlyList<ProgramOutputRoute> routes,
+        AudioProfile profile,
+        IReadOnlyList<AudioDeviceInfo> outputDevices)
     {
         var warnings = new List<string>();
         foreach (var route in routes)
@@ -537,14 +791,37 @@ public partial class MainWindow
                 continue;
             }
 
+            var targetDeviceId = route.TargetDeviceId;
+            if (!string.IsNullOrWhiteSpace(targetDeviceId))
+            {
+                var choice = ProfileDeviceResolver.ChooseFirstAvailable(
+                    [targetDeviceId, .. profile.OutputFallbackDeviceIds],
+                    outputDevices,
+                    profile.KnownDeviceNames);
+                if (choice.Device is null)
+                {
+                    warnings.Add($"{processName}: {choice.RequestedName}와 대체 장치가 없어 Windows 기본 장치를 따릅니다.");
+                    targetDeviceId = string.Empty;
+                }
+                else
+                {
+                    if (choice.UsedFallback)
+                    {
+                        warnings.Add($"{processName}: {choice.RequestedName}가 없어 {choice.Device.Name}로 보냅니다.");
+                    }
+
+                    targetDeviceId = choice.Device.Id;
+                }
+            }
+
             try
             {
-                var changedCount = await _viewModel.SetProcessOutputDeviceAsync(processName, route.TargetDeviceId);
+                var changedCount = await _viewModel.SetProcessOutputDeviceAsync(processName, targetDeviceId);
                 AppLog.Info(
                     "MainWindow",
                     changedCount == 0
                         ? $"앱별 출력 건너뜀(실행 중 아님) processName={processName}"
-                        : $"앱별 출력 적용 processName={processName} changedProcesses={changedCount} deviceId={(string.IsNullOrWhiteSpace(route.TargetDeviceId) ? "(Windows 기본)" : route.TargetDeviceId)}");
+                        : $"앱별 출력 적용 processName={processName} changedProcesses={changedCount} deviceId={(string.IsNullOrWhiteSpace(targetDeviceId) ? "(Windows 기본)" : targetDeviceId)}");
             }
             catch (Exception exception)
             {

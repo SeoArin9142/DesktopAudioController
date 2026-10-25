@@ -248,6 +248,15 @@ public sealed class SettingsService : ISettingsService
         return settings;
     }
 
+    private static List<string> NormalizeDeviceIdList(IEnumerable<string>? deviceIds)
+    {
+        return (deviceIds ?? [])
+            .Where(deviceId => !string.IsNullOrWhiteSpace(deviceId))
+            .Select(deviceId => deviceId.Trim())
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+    }
+
     private static List<AutoProfileRule> NormalizeAutoProfileRules(IEnumerable<AutoProfileRule>? rules)
     {
         var normalizedRules = new List<AutoProfileRule>();
@@ -349,6 +358,21 @@ public sealed class SettingsService : ISettingsService
                 })
                 .ToList();
             profile.Hotkey = profile.Hotkey?.Trim() ?? string.Empty;
+            profile.DefaultInputDeviceId = profile.DefaultInputDeviceId?.Trim() ?? string.Empty;
+            profile.OutputFallbackDeviceIds = NormalizeDeviceIdList(profile.OutputFallbackDeviceIds);
+            profile.InputFallbackDeviceIds = NormalizeDeviceIdList(profile.InputFallbackDeviceIds);
+            profile.DeviceLevels = (profile.DeviceLevels ?? [])
+                .Where(level => level is not null && !string.IsNullOrWhiteSpace(level.DeviceId) && (level.Volume is not null || level.IsMuted is not null))
+                .Select(level => new ProfileDeviceLevel
+                {
+                    DeviceId = level.DeviceId.Trim(),
+                    Volume = level.Volume is { } volume ? Math.Clamp(volume, 0, 100) : null,
+                    IsMuted = level.IsMuted
+                })
+                .ToList();
+            profile.KnownDeviceNames = (profile.KnownDeviceNames ?? [])
+                .Where(knownName => knownName is not null && !string.IsNullOrWhiteSpace(knownName.DeviceId) && !string.IsNullOrWhiteSpace(knownName.Name))
+                .ToList();
             normalizedProfiles.Add(profile);
         }
 

@@ -117,6 +117,21 @@ public sealed class WorkerBackedAudioDeviceCatalogService : IAudioDeviceCatalogS
         _controlService.SetMuted(deviceId, muted);
     }
 
+    public IReadOnlyList<AudioDeviceInfo> GetAvailableInputDevices()
+    {
+        // 입력 장치 열거도 가상 장치 환경에서 멈출 수 있어 출력과 같은 워커로 격리합니다.
+        // 프로필 편집·적용 때만 가끔 읽으므로 캐시 없이 매번 읽고, 실패하면 빈 목록으로 둡니다.
+        try
+        {
+            return ProbeDevicesAsync(probeInput: true).GetAwaiter().GetResult();
+        }
+        catch (Exception exception)
+        {
+            AppLog.Warn("WorkerBackedAudioDeviceCatalogService", "입력 장치 워커 probe 실패, 빈 목록 반환", exception);
+            return [];
+        }
+    }
+
     public void SetAsDefault(string deviceId)
     {
         _controlService.SetAsDefault(deviceId);
@@ -127,7 +142,7 @@ public sealed class WorkerBackedAudioDeviceCatalogService : IAudioDeviceCatalogS
         _controlService.Dispose();
     }
 
-    private async Task<IReadOnlyList<AudioDeviceInfo>> ProbeDevicesAsync()
+    private async Task<IReadOnlyList<AudioDeviceInfo>> ProbeDevicesAsync(bool probeInput = false)
     {
         var tempOutputPath = Path.Combine(
             Path.GetTempPath(),
@@ -142,7 +157,7 @@ public sealed class WorkerBackedAudioDeviceCatalogService : IAudioDeviceCatalogS
                 WorkingDirectory = Path.GetDirectoryName(_executablePath) ?? Environment.CurrentDirectory
             };
             // 별도 worker exe를 두지 않고 같은 exe를 --probe-audio 모드로 다시 실행합니다.
-            AudioDeviceProbeCommand.Apply(startInfo, tempOutputPath, AppLog.IsDebugEnabled);
+            AudioDeviceProbeCommand.Apply(startInfo, tempOutputPath, AppLog.IsDebugEnabled, probeInput);
             AppLog.Debug(
                 "WorkerBackedAudioDeviceCatalogService",
                 $"워커 probe 시작 executablePath={_executablePath} outputPath={tempOutputPath} timeoutMs={(int)ProbeTimeout.TotalMilliseconds}");

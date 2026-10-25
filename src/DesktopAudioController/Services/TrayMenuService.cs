@@ -55,6 +55,8 @@ public sealed class TrayMenuService : IDisposable
     /// 트레이에 보여 줄 현재 프로필과 자동 전환 상태입니다.
     /// </summary>
     public sealed record AutoProfileMenu(
+        string? CurrentProfileId,
+        string? CurrentProfileName,
         string CurrentProfileText,
         bool IsAutoSwitchEnabled,
         bool IsAutoSwitchPaused,
@@ -79,9 +81,7 @@ public sealed class TrayMenuService : IDisposable
         trayMenu.Items.Clear();
 
         var defaultDevice = state.Devices.FirstOrDefault(device => device.IsDefault);
-        _notifyIcon.Text = defaultDevice is null
-            ? "DesktopAudioController"
-            : $"DesktopAudioController - 기본: {TrimNotifyText(defaultDevice.Name)}";
+        _notifyIcon.Text = BuildNotifyText(state.AutoProfile?.CurrentProfileName, defaultDevice?.Name);
 
         trayMenu.Items.Add(new Forms.ToolStripMenuItem(
             defaultDevice is null
@@ -110,7 +110,7 @@ public sealed class TrayMenuService : IDisposable
             });
         }
 
-        trayMenu.Items.Add(BuildAudioProfileMenu(state));
+        AddAudioProfileItems(trayMenu, state);
         if (state.AutoProfile is { IsAutoSwitchEnabled: true } autoProfile)
         {
             var pauseItem = new Forms.ToolStripMenuItem("자동 전환 일시정지")
@@ -191,28 +191,55 @@ public sealed class TrayMenuService : IDisposable
         ownedIcon?.Dispose();
     }
 
-    private static Forms.ToolStripMenuItem BuildAudioProfileMenu(MenuState state)
+    /// <summary>
+    /// 프로필을 하위 메뉴가 아니라 메뉴 바로 아래에 번호와 단축키를 붙여 나열해 한 번에 고를 수 있게 합니다.
+    /// 번호는 메인 화면 버튼·--profile-index 와 같은 이름순입니다.
+    /// </summary>
+    private static void AddAudioProfileItems(Forms.ContextMenuStrip trayMenu, MenuState state)
     {
-        var profileMenu = new Forms.ToolStripMenuItem("프로필 적용");
         if (state.Settings.AudioProfiles.Count == 0)
         {
-            profileMenu.Enabled = false;
-            return profileMenu;
+            trayMenu.Items.Add(new Forms.ToolStripMenuItem("저장한 프로필 없음")
+            {
+                Enabled = false
+            });
+            return;
         }
 
-        var appliedProfileId = AudioProfileStore.FindAppliedProfileId(state.Settings);
+        var appliedProfileId = state.AutoProfile?.CurrentProfileId ?? AudioProfileStore.FindAppliedProfileId(state.Settings);
+        var number = 1;
         foreach (var profile in state.Settings.AudioProfiles.OrderBy(profile => profile.Name, StringComparer.CurrentCultureIgnoreCase))
         {
             var localProfileId = profile.Id;
-            var profileItem = new Forms.ToolStripMenuItem(profile.Name)
+            var profileItem = new Forms.ToolStripMenuItem($"{number}. {profile.Name}")
             {
-                Checked = string.Equals(profile.Id, appliedProfileId, StringComparison.Ordinal)
+                Checked = string.Equals(profile.Id, appliedProfileId, StringComparison.Ordinal),
+                ShortcutKeyDisplayString = state.Settings.EnableProfileHotkeys ? profile.Hotkey : string.Empty
             };
             profileItem.Click += (_, _) => state.ApplyProfile(localProfileId);
-            profileMenu.DropDownItems.Add(profileItem);
+            trayMenu.Items.Add(profileItem);
+            number++;
+        }
+    }
+
+    /// <summary>
+    /// 트레이 아이콘 툴팁입니다. Windows 툴팁 길이 제한이 있어 장치·프로필 이름을 줄여 넣습니다.
+    /// </summary>
+    private static string BuildNotifyText(string? profileName, string? defaultDeviceName)
+    {
+        var lines = new List<string> { "DesktopAudioController" };
+        if (!string.IsNullOrWhiteSpace(profileName))
+        {
+            lines.Add($"프로필: {TrimNotifyText(profileName)}");
         }
 
-        return profileMenu;
+        if (!string.IsNullOrWhiteSpace(defaultDeviceName))
+        {
+            lines.Add($"기본: {TrimNotifyText(defaultDeviceName)}");
+        }
+
+        var text = string.Join("\n", lines);
+        return text.Length <= 127 ? text : text[..127];
     }
 
     private static string BuildMenuSignature(MenuState state)
@@ -226,11 +253,11 @@ public sealed class TrayMenuService : IDisposable
             "\n",
             state.Settings.AudioProfiles
                 .OrderBy(profile => profile.Name, StringComparer.CurrentCultureIgnoreCase)
-                .Select(profile => $"{profile.Id}|{profile.Name}"));
+                .Select(profile => $"{profile.Id}|{profile.Name}|{profile.Hotkey}"));
 
         var autoProfileSignature = state.AutoProfile is null
             ? string.Empty
-            : $"{state.AutoProfile.CurrentProfileText}|{state.AutoProfile.IsAutoSwitchEnabled}|{state.AutoProfile.IsAutoSwitchPaused}";
+            : $"{state.AutoProfile.CurrentProfileId}|{state.AutoProfile.CurrentProfileText}|{state.AutoProfile.IsAutoSwitchEnabled}|{state.AutoProfile.IsAutoSwitchPaused}|{state.Settings.EnableProfileHotkeys}";
 
         return $"{deviceSignature}\nminimizeToTray:{state.MinimizeToTray}\nprofiles:{appliedProfileId}\n{profileSignature}\nauto:{autoProfileSignature}";
     }

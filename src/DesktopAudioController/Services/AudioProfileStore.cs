@@ -100,8 +100,29 @@ internal static class AudioProfileStore
             ProgramAudioPreferences = CloneProgramAudioPreferences(profile.ProgramAudioPreferences),
             DefaultOutputDeviceId = profile.DefaultOutputDeviceId,
             ProgramOutputRoutes = CloneProgramOutputRoutes(profile.ProgramOutputRoutes),
-            Hotkey = profile.Hotkey
+            Hotkey = profile.Hotkey,
+            OutputFallbackDeviceIds = [.. profile.OutputFallbackDeviceIds ?? []],
+            DefaultInputDeviceId = profile.DefaultInputDeviceId,
+            InputFallbackDeviceIds = [.. profile.InputFallbackDeviceIds ?? []],
+            DeviceLevels = CloneDeviceLevels(profile.DeviceLevels),
+            KnownDeviceNames = (profile.KnownDeviceNames ?? [])
+                .Where(knownName => knownName is not null)
+                .Select(knownName => new KnownDeviceName { DeviceId = knownName.DeviceId, Name = knownName.Name })
+                .ToList()
         };
+    }
+
+    public static List<ProfileDeviceLevel> CloneDeviceLevels(IEnumerable<ProfileDeviceLevel>? levels)
+    {
+        return (levels ?? [])
+            .Where(level => level is not null)
+            .Select(level => new ProfileDeviceLevel
+            {
+                DeviceId = level.DeviceId,
+                Volume = level.Volume,
+                IsMuted = level.IsMuted
+            })
+            .ToList();
     }
 
     public static List<ProgramOutputRoute> CloneProgramOutputRoutes(IEnumerable<ProgramOutputRoute>? routes)

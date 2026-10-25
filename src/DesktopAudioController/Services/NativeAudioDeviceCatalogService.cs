@@ -217,6 +217,55 @@ public sealed class NativeAudioDeviceCatalogService : IAudioDeviceCatalogService
     /// <summary>
     /// 지정한 장치를 기본 출력 장치로 설정합니다.
     /// </summary>
+    /// <summary>
+    /// 현재 시스템에 등록된 캡처(마이크) 장치 목록을 반환합니다. IsDefault 는 Windows "기본 장치" 기준입니다.
+    /// </summary>
+    public IReadOnlyList<AudioDeviceInfo> GetAvailableInputDevices()
+    {
+        var stopwatch = Stopwatch.StartNew();
+        var results = new List<AudioDeviceInfo>();
+        using var enumerator = new MMDeviceEnumerator();
+        string? defaultDeviceId = null;
+        try
+        {
+            defaultDeviceId = enumerator.GetDefaultAudioEndpoint(DataFlow.Capture, Role.Console).ID;
+        }
+        catch
+        {
+            // 마이크가 하나도 없으면 기본 입력 장치가 없습니다.
+        }
+
+        var deviceCollection = enumerator.EnumerateAudioEndPoints(
+            DataFlow.Capture,
+            DeviceState.Active | DeviceState.Unplugged);
+        for (var index = 0; index < deviceCollection.Count; index++)
+        {
+            using var device = deviceCollection[index];
+            try
+            {
+                // 빠진 장치의 볼륨 인터페이스를 활성화하면 오래 걸릴 수 있어 연결된 장치만 볼륨을 읽습니다.
+                var isConnected = device.State == DeviceState.Active;
+                var endpointVolume = isConnected ? device.AudioEndpointVolume : null;
+                results.Add(new AudioDeviceInfo
+                {
+                    Id = device.ID,
+                    Name = device.FriendlyName,
+                    IsConnected = isConnected,
+                    IsDefault = device.ID == defaultDeviceId,
+                    IsMuted = endpointVolume?.Mute ?? false,
+                    Volume = endpointVolume is null ? 0 : (int)Math.Round(endpointVolume.MasterVolumeLevelScalar * 100)
+                });
+            }
+            catch (Exception exception)
+            {
+                AppLog.Warn("NativeAudioDeviceCatalogService", $"입력 장치 스냅샷 실패 index={index}", exception);
+            }
+        }
+
+        AppLog.Debug("NativeAudioDeviceCatalogService", $"GetAvailableInputDevices 완료 count={results.Count} elapsedMs={stopwatch.ElapsedMilliseconds}");
+        return results;
+    }
+
     public void SetAsDefault(string deviceId)
     {
         var stopwatch = Stopwatch.StartNew();

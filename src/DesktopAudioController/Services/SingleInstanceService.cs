@@ -12,6 +12,9 @@ namespace DesktopAudioController.Services;
 public sealed class SingleInstanceService : IDisposable
 {
     private const string ActivationCommand = "activate";
+
+    // 후속 실행이 창 활성화 대신 명령(프로필 적용 등)만 넘길 때 쓰는 접두어입니다.
+    private const string ProfileCommandPrefix = "command:";
     private readonly string _mutexName;
     private readonly string _pipeName;
     private Mutex? _mutex;
@@ -53,6 +56,16 @@ public sealed class SingleInstanceService : IDisposable
     public void StartActivationListener(Func<Task> activationHandler)
     {
         ArgumentNullException.ThrowIfNull(activationHandler);
+        StartActivationListener(activationHandler, _ => Task.CompletedTask);
+    }
+
+    /// <summary>
+    /// 창 활성화 요청과 명령 요청을 함께 받습니다. 명령 요청은 창을 띄우지 않고 commandHandler 로만 전달합니다.
+    /// </summary>
+    public void StartActivationListener(Func<Task> activationHandler, Func<ProfileCommand, Task> commandHandler)
+    {
+        ArgumentNullException.ThrowIfNull(activationHandler);
+        ArgumentNullException.ThrowIfNull(commandHandler);
 
         if (!_ownsPrimaryInstance)
         {
@@ -65,10 +78,18 @@ public sealed class SingleInstanceService : IDisposable
         }
 
         _listenerCancellationTokenSource = new CancellationTokenSource();
-        _listenerTask = Task.Run(() => ListenForActivationRequestsAsync(activationHandler, _listenerCancellationTokenSource.Token));
+        _listenerTask = Task.Run(() => ListenForActivationRequestsAsync(activationHandler, commandHandler, _listenerCancellationTokenSource.Token));
     }
 
-    public async Task<bool> TryNotifyExistingInstanceAsync(TimeSpan timeout)
+    public Task<bool> TryNotifyExistingInstanceAsync(TimeSpan timeout)
+    {
+        return TryNotifyExistingInstanceAsync(timeout, command: null);
+    }
+
+    /// <summary>
+    /// 실행 중인 인스턴스에 창 활성화(command 가 null) 또는 명령을 보냅니다.
+    /// </summary>
+    public async Task<bool> TryNotifyExistingInstanceAsync(TimeSpan timeout, ProfileCommand? command)
     {
         try
         {
@@ -79,7 +100,9 @@ public sealed class SingleInstanceService : IDisposable
             {
                 AutoFlush = true
             };
-            await writer.WriteLineAsync(ActivationCommand).ConfigureAwait(false);
+            await writer.WriteLineAsync(command is null
+                ? ActivationCommand
+                : ProfileCommandPrefix + ProfileCommandLine.Serialize(command)).ConfigureAwait(false);
             return true;
         }
         catch
@@ -121,7 +144,10 @@ public sealed class SingleInstanceService : IDisposable
         _ownsPrimaryInstance = false;
     }
 
-    private async Task ListenForActivationRequestsAsync(Func<Task> activationHandler, CancellationToken cancellationToken)
+    private async Task ListenForActivationRequestsAsync(
+        Func<Task> activationHandler,
+        Func<ProfileCommand, Task> commandHandler,
+        CancellationToken cancellationToken)
     {
         while (!cancellationToken.IsCancellationRequested)
         {
@@ -157,6 +183,13 @@ public sealed class SingleInstanceService : IDisposable
                 if (string.Equals(command, ActivationCommand, StringComparison.Ordinal))
                 {
                     await activationHandler().ConfigureAwait(false);
+                }
+                else if (command is not null &&
+                    command.StartsWith(ProfileCommandPrefix, StringComparison.Ordinal) &&
+                    ProfileCommandLine.TryDeserialize(command[ProfileCommandPrefix.Length..], out var profileCommand) &&
+                    profileCommand is not null)
+                {
+                    await commandHandler(profileCommand).ConfigureAwait(false);
                 }
             }
             catch
