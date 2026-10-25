@@ -576,6 +576,10 @@ public partial class MainWindow
             await ApplyDeviceLevelsAsync(profile, outputDevices, warnings);
             warnings.AddRange(await ApplyProgramOutputRoutesAsync(profile.ProgramOutputRoutes, profile, outputDevices));
 
+            // 프로필의 프로그램별 볼륨을 패널을 열지 않아도 바로 맞춥니다. 저장값이 바뀌었으니 이미 맞춘 세션도 다시 봅니다.
+            _viewModel.ResetStoredPreferenceEnforcement();
+            _ = EnforceStoredProgramPreferencesSoonAsync($"profile_applied source={source}");
+
             _currentProfileId = profile.Id;
             if (source is not ProfileApplySource.AutoRule)
             {

@@ -111,6 +111,9 @@ public partial class MainWindow : Window
     // 일부 가상 장치는 기본 장치 변경 후 기본 장치 이벤트를 늦게 보내거나 보내지 않아, 짧게 기다린 뒤 상태를 한 번 더 맞춥니다.
     private static readonly TimeSpan DefaultDeviceRefreshDelay = TimeSpan.FromMilliseconds(250);
 
+    // 기본 장치를 바꾼 뒤 게임·브라우저가 새 장치에 세션을 다시 만들 때까지 기다렸다가 저장값을 한 번 더 맞추는 시간입니다.
+    private static readonly TimeSpan StoredPreferenceRecheckDelay = TimeSpan.FromMilliseconds(1500);
+
     // 전체 재로딩은 VoiceMeeter 환경에서 2초를 넘길 수 있어 여유를 조금 더 둡니다.
     private static readonly TimeSpan FullRefreshOperationTimeout = TimeSpan.FromSeconds(6);
 
@@ -1706,6 +1709,30 @@ public partial class MainWindow : Window
         await Task.Delay(DefaultDeviceRefreshDelay);
         AppLog.Info("MainWindow", $"기본 장치 변경 후 지연 재동기화 deviceId={deviceId}");
         await RefreshStateViewAsync($"default_device_resync deviceId={deviceId}");
+
+        // 앱들이 새 기본 장치에 새 세션을 만들면 패널을 열지 않아도 저장된 프로그램 볼륨을 바로 맞춥니다.
+        await EnforceStoredProgramPreferencesSoonAsync("default_device_changed");
+    }
+
+    /// <summary>
+    /// 저장된 프로그램별 볼륨·음소거를 지금 한 번, 앱이 새 장치로 옮겨 올 시간을 두고 한 번 더 적용합니다.
+    /// </summary>
+    private async Task EnforceStoredProgramPreferencesSoonAsync(string reason)
+    {
+        try
+        {
+            var appliedCount = await _viewModel.EnforceStoredProgramPreferencesAsync(reason);
+            await Task.Delay(StoredPreferenceRecheckDelay);
+            appliedCount += await _viewModel.EnforceStoredProgramPreferencesAsync($"{reason}_recheck");
+            if (appliedCount > 0 && _viewModel.HasExpandedSessionDevices)
+            {
+                await RefreshSessionViewAsync($"stored_preferences_enforced reason={reason}");
+            }
+        }
+        catch (Exception exception)
+        {
+            AppLog.Warn("MainWindow", $"저장된 프로그램 설정 즉시 적용 실패 reason={reason}", exception);
+        }
     }
 
     /// <summary>

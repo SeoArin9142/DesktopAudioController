@@ -75,6 +75,9 @@ public sealed class MainViewModel : ObservableObject
     // 한 번 복원한 라이브 세션은 같은 프로세스 수명 동안 반복 복원하지 않도록 추적합니다.
     private readonly HashSet<string> _restoredSessionIds = new(StringComparer.Ordinal);
 
+    // 패널을 열지 않아도 저장값을 맞춘 세션("장치ID|세션ID")입니다. 백그라운드 스레드에서도 쓰므로 잠금으로 보호합니다.
+    private readonly HashSet<string> _enforcedSessionKeys = new(StringComparer.Ordinal);
+
     // 슬라이더 드래그 중 연속 저장을 줄이기 위해 마지막 변경만 저장하는 타이머입니다.
     private readonly DispatcherTimer _programPreferenceSaveDebounceTimer;
 
@@ -1142,6 +1145,93 @@ public sealed class MainViewModel : ObservableObject
     public Task<int> SetProcessOutputDeviceAsync(string processName, string targetDeviceId)
     {
         return Task.Run(() => _audioSessionService.SetProcessOutputDevice(processName, targetDeviceId));
+    }
+
+    /// <summary>
+    /// 프로필이 바뀌어 저장값이 달라졌을 때, 이미 맞춘 세션도 다시 맞추도록 기록을 지웁니다.
+    /// </summary>
+    public void ResetStoredPreferenceEnforcement()
+    {
+        lock (_enforcedSessionKeys)
+        {
+            _enforcedSessionKeys.Clear();
+        }
+
+        _restoredSessionIds.Clear();
+    }
+
+    /// <summary>
+    /// 프로그램별 볼륨 패널을 열지 않아도, 연결된 모든 출력 장치의 세션에 저장된 볼륨·음소거를 적용합니다.
+    /// 기본 장치를 바꾸면 앱이 새 장치에 새 세션을 만들기 때문에, 패널을 열 때까지 저장값이 늦게 들어가던 문제를 막습니다.
+    /// 세션마다 한 번만 맞추므로 그 뒤에 사용자가 Windows 믹서 등에서 바꾼 값은 덮어쓰지 않습니다.
+    /// </summary>
+    public async Task<int> EnforceStoredProgramPreferencesAsync(string reason)
+    {
+        var preferencesByKey = _programAudioPreferencesByKey.ToDictionary(
+            pair => pair.Key,
+            pair => pair.Value,
+            StringComparer.OrdinalIgnoreCase);
+        if (preferencesByKey.Count == 0)
+        {
+            return 0;
+        }
+
+        var includeSystemSounds = _showSystemSounds;
+        var devices = await GetAvailableOutputDevicesForSessionRoutingAsync();
+        return await Task.Run(() =>
+        {
+            var appliedCount = 0;
+            foreach (var device in devices)
+            {
+                IReadOnlyList<AudioSessionInfo> sessions;
+                try
+                {
+                    sessions = _audioSessionService.GetSessions(device.Id, includeSystemSounds);
+                }
+                catch (Exception exception)
+                {
+                    AppLog.Warn("MainViewModel", $"저장값 적용용 세션 조회 실패 deviceId={device.Id}", exception);
+                    continue;
+                }
+
+                foreach (var session in sessions)
+                {
+                    if (!ProgramAudioPreferenceStore.TryGetStoredPreference(preferencesByKey, session, out var preference))
+                    {
+                        continue;
+                    }
+
+                    lock (_enforcedSessionKeys)
+                    {
+                        if (!_enforcedSessionKeys.Add($"{device.Id}|{session.Id}"))
+                        {
+                            continue;
+                        }
+                    }
+
+                    if (session.Volume == preference.Volume && session.IsMuted == preference.IsMuted)
+                    {
+                        continue;
+                    }
+
+                    try
+                    {
+                        _audioSessionService.SetSessionVolume(device.Id, session.Id, preference.Volume);
+                        _audioSessionService.SetSessionMuted(device.Id, session.Id, preference.IsMuted);
+                        appliedCount++;
+                        AppLog.Info(
+                            "MainViewModel",
+                            $"저장된 프로그램 설정 즉시 적용 reason={reason} deviceId={device.Id} sessionId={session.Id} displayName={session.DisplayName} volume={preference.Volume} muted={preference.IsMuted}");
+                    }
+                    catch (Exception exception)
+                    {
+                        AppLog.Warn("MainViewModel", $"저장된 프로그램 설정 즉시 적용 실패 deviceId={device.Id} sessionId={session.Id}", exception);
+                    }
+                }
+            }
+
+            return appliedCount;
+        });
     }
 
     /// <summary>
