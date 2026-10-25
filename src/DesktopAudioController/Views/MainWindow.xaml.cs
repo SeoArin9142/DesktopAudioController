@@ -133,6 +133,9 @@ public partial class MainWindow : Window
     // 수동 업데이트 확인 버튼 연타 시 네트워크 요청을 막는 최소 간격입니다.
     private static readonly TimeSpan ManualUpdateCheckThrottle = TimeSpan.FromSeconds(5);
 
+    // 트레이 메뉴를 열 때 실제 장치 값을 기다리는 최대 시간입니다. 넘으면 지금 값으로 메뉴를 엽니다.
+    private static readonly TimeSpan TrayMenuResyncTimeout = TimeSpan.FromMilliseconds(300);
+
     // 창이 보이는 동안 장치 볼륨·음소거·기본 장치 표시를 실제 값과 맞추는 간격입니다.
     private static readonly TimeSpan DeviceLevelResyncInterval = TimeSpan.FromSeconds(2);
 
@@ -296,7 +299,7 @@ public partial class MainWindow : Window
     {
         try
         {
-            _viewModel.ResyncVisibleDeviceLevels();
+            _viewModel.ResyncVisibleDeviceLevels(TrayMenuResyncTimeout);
         }
         catch (Exception exception)
         {

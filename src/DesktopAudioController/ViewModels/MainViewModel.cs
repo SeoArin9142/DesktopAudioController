@@ -1185,12 +1185,20 @@ public sealed class MainViewModel : ObservableObject
     }
 
     /// <summary>
-    /// 트레이 메뉴를 열 때처럼 바로 맞은 값이 필요할 때 현재 스레드에서 읽고 맞춥니다(장치당 수 ms).
+    /// 트레이 메뉴를 열 때처럼 바로 맞은 값이 필요할 때 씁니다. UI 스레드에서 불러도 됩니다.
+    /// 장치 값 읽기는 반드시 백그라운드 스레드에서 하고, 최대 timeout 만큼만 기다립니다.
+    /// (UI 스레드에서 볼륨 인터페이스를 열고 닫으면, 같은 순간 들어오는 볼륨 알림과 서로 기다리며 멈춥니다 — 10-25 실제 발생.)
     /// </summary>
-    public int ResyncVisibleDeviceLevels()
+    public int ResyncVisibleDeviceLevels(TimeSpan timeout)
     {
         var deviceIds = GetConnectedVisibleDeviceIds();
-        return deviceIds.Count == 0 ? 0 : ApplyDeviceLevels(_audioDeviceCatalogService.ReadDeviceLevels(deviceIds));
+        if (deviceIds.Count == 0)
+        {
+            return 0;
+        }
+
+        var readTask = Task.Run(() => _audioDeviceCatalogService.ReadDeviceLevels(deviceIds));
+        return readTask.Wait(timeout) ? ApplyDeviceLevels(readTask.Result) : 0;
     }
 
     private List<string> GetConnectedVisibleDeviceIds()
