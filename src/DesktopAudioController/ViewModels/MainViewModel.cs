@@ -1170,6 +1170,65 @@ public sealed class MainViewModel : ObservableObject
     }
 
     /// <summary>
+    /// 장치 볼륨 알림이 빠졌을 때를 대비해, 보이는 장치의 실제 볼륨·음소거·기본 장치 여부를 직접 읽어 맞춥니다.
+    /// 다르게 보이던 장치 수를 반환합니다.
+    /// </summary>
+    public async Task<int> ResyncVisibleDeviceLevelsAsync()
+    {
+        var deviceIds = GetConnectedVisibleDeviceIds();
+        if (deviceIds.Count == 0)
+        {
+            return 0;
+        }
+
+        return ApplyDeviceLevels(await Task.Run(() => _audioDeviceCatalogService.ReadDeviceLevels(deviceIds)));
+    }
+
+    /// <summary>
+    /// 트레이 메뉴를 열 때처럼 바로 맞은 값이 필요할 때 현재 스레드에서 읽고 맞춥니다(장치당 수 ms).
+    /// </summary>
+    public int ResyncVisibleDeviceLevels()
+    {
+        var deviceIds = GetConnectedVisibleDeviceIds();
+        return deviceIds.Count == 0 ? 0 : ApplyDeviceLevels(_audioDeviceCatalogService.ReadDeviceLevels(deviceIds));
+    }
+
+    private List<string> GetConnectedVisibleDeviceIds()
+    {
+        return VisibleDevices
+            .Where(device => device.IsConnected)
+            .Select(device => device.Id)
+            .ToList();
+    }
+
+    private int ApplyDeviceLevels(IReadOnlyList<DeviceLevelSnapshot> levels)
+    {
+        var correctedCount = 0;
+        foreach (var level in levels)
+        {
+            var device = VisibleDevices.FirstOrDefault(item => item.Id == level.DeviceId);
+            if (device is null ||
+                (device.Volume == level.Volume && device.IsMuted == level.IsMuted && device.IsDefault == level.IsDefault))
+            {
+                continue;
+            }
+
+            AppLog.Info(
+                "MainViewModel",
+                $"장치 상태 보정(알림 누락) deviceId={level.DeviceId} volume={device.Volume}->{level.Volume} muted={device.IsMuted}->{level.IsMuted} isDefault={device.IsDefault}->{level.IsDefault}");
+            device.ApplyExternalState(level.Volume, level.IsMuted, level.IsDefault);
+            correctedCount++;
+        }
+
+        if (correctedCount > 0)
+        {
+            MoveDefaultDeviceToTop();
+        }
+
+        return correctedCount;
+    }
+
+    /// <summary>
     /// 프로필이 바뀌어 저장값이 달라졌을 때, 이미 맞춘 세션도 다시 맞추도록 기록을 지웁니다.
     /// </summary>
     public void ResetStoredPreferenceEnforcement()

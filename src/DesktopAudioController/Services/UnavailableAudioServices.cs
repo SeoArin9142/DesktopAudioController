@@ -40,6 +40,11 @@ internal static class UnavailableAudioServices
             return [];
         }
 
+        public IReadOnlyList<DeviceLevelSnapshot> ReadDeviceLevels(IReadOnlyCollection<string> deviceIds)
+        {
+            return [];
+        }
+
         public void SetVolume(string deviceId, int volume)
         {
             throw CreateUnavailableException();

@@ -82,6 +82,12 @@ public partial class MainWindow : Window
     // 앱이 켜져 있는 동안 새 릴리즈를 주기적으로 확인하기 위한 타이머입니다.
     private readonly DispatcherTimer _updateCheckTimer;
 
+    // 장치 볼륨 알림이 빠져도 화면이 틀린 값으로 남지 않도록, 창이 보이는 동안 실제 값을 주기적으로 맞추는 타이머입니다.
+    private readonly DispatcherTimer _deviceLevelResyncTimer;
+
+    // 보정 읽기가 겹치지 않게 막습니다.
+    private bool _isDeviceLevelResyncRunning;
+
     // 업데이트 확인 요청이 겹치지 않도록 직렬화합니다.
     private readonly SemaphoreSlim _updateCheckSemaphore = new(1, 1);
 
@@ -126,6 +132,9 @@ public partial class MainWindow : Window
 
     // 수동 업데이트 확인 버튼 연타 시 네트워크 요청을 막는 최소 간격입니다.
     private static readonly TimeSpan ManualUpdateCheckThrottle = TimeSpan.FromSeconds(5);
+
+    // 창이 보이는 동안 장치 볼륨·음소거·기본 장치 표시를 실제 값과 맞추는 간격입니다.
+    private static readonly TimeSpan DeviceLevelResyncInterval = TimeSpan.FromSeconds(2);
 
     // 앱이 켜져 있는 동안 새 릴리즈를 가볍게 재확인하는 간격입니다.
     private static readonly TimeSpan PeriodicUpdateCheckInterval = TimeSpan.FromHours(6);
@@ -199,7 +208,7 @@ public partial class MainWindow : Window
         _requiresStartupBackgroundRefresh = requiresStartupBackgroundRefresh;
         _trayMenuService = new TrayMenuService(
             () => RunOnUiThread(RestoreFromTray),
-            () => RunOnUiThread(() => RefreshTrayMenu()));
+            () => RunOnUiThread(RefreshTrayMenuBeforeOpening));
         _sessionRefreshTimer = new DispatcherTimer();
         _sessionRefreshTimer.Tick += SessionRefreshTimer_OnTick;
         _updateCheckTimer = new DispatcherTimer
@@ -207,6 +216,11 @@ public partial class MainWindow : Window
             Interval = PeriodicUpdateCheckInterval
         };
         _updateCheckTimer.Tick += UpdateCheckTimer_OnTick;
+        _deviceLevelResyncTimer = new DispatcherTimer
+        {
+            Interval = DeviceLevelResyncInterval
+        };
+        _deviceLevelResyncTimer.Tick += DeviceLevelResyncTimer_OnTick;
         RefreshTrayMenu(force: true);
         InitializeAutoProfileFeatures();
         DataContext = _viewModel;
@@ -239,6 +253,57 @@ public partial class MainWindow : Window
             _trayMenuService.InvalidateMenu();
             RefreshTrayMenu(force: true);
         });
+    }
+
+    private void DeviceLevelResyncTimer_OnTick(object? sender, EventArgs e)
+    {
+        _ = ResyncDeviceLevelsAsync();
+    }
+
+    /// <summary>
+    /// 보이는 장치의 실제 볼륨·음소거·기본 장치 여부를 읽어 화면과 트레이 메뉴를 맞춥니다.
+    /// Windows 볼륨 알림이 빠지는 경우가 있어(10-25 실제 발생) 알림에만 기대지 않습니다.
+    /// </summary>
+    private async Task ResyncDeviceLevelsAsync()
+    {
+        if (_isDeviceLevelResyncRunning)
+        {
+            return;
+        }
+
+        _isDeviceLevelResyncRunning = true;
+        try
+        {
+            if (await _viewModel.ResyncVisibleDeviceLevelsAsync() > 0)
+            {
+                RefreshTrayMenu();
+            }
+        }
+        catch (Exception exception)
+        {
+            AppLog.Debug("MainWindow", $"장치 상태 보정 실패: {exception.Message}");
+        }
+        finally
+        {
+            _isDeviceLevelResyncRunning = false;
+        }
+    }
+
+    /// <summary>
+    /// 트레이 메뉴를 여는 순간 실제 값을 바로 읽어 맞춘 뒤 메뉴를 그립니다.
+    /// </summary>
+    private void RefreshTrayMenuBeforeOpening()
+    {
+        try
+        {
+            _viewModel.ResyncVisibleDeviceLevels();
+        }
+        catch (Exception exception)
+        {
+            AppLog.Debug("MainWindow", $"트레이 메뉴 열기 전 장치 상태 보정 실패: {exception.Message}");
+        }
+
+        RefreshTrayMenu();
     }
 
     private void UpdateLanguageToggleButton()
@@ -911,6 +976,16 @@ public partial class MainWindow : Window
 
     private void MainWindow_OnIsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
     {
+        if (IsVisible)
+        {
+            _deviceLevelResyncTimer.Start();
+            _ = ResyncDeviceLevelsAsync();
+        }
+        else
+        {
+            _deviceLevelResyncTimer.Stop();
+        }
+
         ConfigureAutomaticSessionRefresh(restart: true);
     }
 
@@ -1120,6 +1195,8 @@ public partial class MainWindow : Window
         _sessionRefreshTimer.Tick -= SessionRefreshTimer_OnTick;
         _updateCheckTimer.Stop();
         _updateCheckTimer.Tick -= UpdateCheckTimer_OnTick;
+        _deviceLevelResyncTimer.Stop();
+        _deviceLevelResyncTimer.Tick -= DeviceLevelResyncTimer_OnTick;
         DisposeAutoProfileFeatures();
         _trayMenuService.Dispose();
         base.OnClosed(e);

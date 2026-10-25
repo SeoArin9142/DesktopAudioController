@@ -133,6 +133,12 @@ public sealed class WorkerBackedAudioDeviceCatalogService : IAudioDeviceCatalogS
         }
     }
 
+    public IReadOnlyList<DeviceLevelSnapshot> ReadDeviceLevels(IReadOnlyCollection<string> deviceIds)
+    {
+        // 볼륨 조절과 같은 현재 프로세스 경로입니다. 장치 열거를 하지 않아 가볍습니다.
+        return _controlService.ReadDeviceLevels(deviceIds);
+    }
+
     public void SetAsDefault(string deviceId)
     {
         _controlService.SetAsDefault(deviceId);

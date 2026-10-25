@@ -225,6 +225,19 @@ public sealed class VisibleDeviceViewModel : ObservableObject
     /// </summary>
     public void ApplyExternalVolume(int volume, bool isMuted)
     {
+        ApplyExternalState(volume, isMuted, isDefault: null);
+    }
+
+    /// <summary>
+    /// Windows 쪽 실제 값으로 장치 카드를 맞춥니다. isDefault 가 null 이면 기본 장치 표시는 그대로 둡니다.
+    /// </summary>
+    public void ApplyExternalState(int volume, bool isMuted, bool? isDefault)
+    {
+        if (isDefault is { } defaultState)
+        {
+            IsDefault = defaultState;
+        }
+
         if (_hasPendingVolumeCommit)
         {
             return;

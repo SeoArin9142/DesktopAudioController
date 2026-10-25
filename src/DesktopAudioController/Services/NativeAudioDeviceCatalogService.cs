@@ -169,6 +169,51 @@ public sealed class NativeAudioDeviceCatalogService : IAudioDeviceCatalogService
     /// <summary>
     /// 지정한 출력 장치의 마스터 볼륨을 설정합니다.
     /// </summary>
+    public IReadOnlyList<DeviceLevelSnapshot> ReadDeviceLevels(IReadOnlyCollection<string> deviceIds)
+    {
+        var results = new List<DeviceLevelSnapshot>();
+        if (deviceIds.Count == 0)
+        {
+            return results;
+        }
+
+        using var enumerator = new MMDeviceEnumerator();
+        string? defaultDeviceId = null;
+        try
+        {
+            defaultDeviceId = enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia).ID;
+        }
+        catch
+        {
+            // 기본 장치가 없으면 모두 기본 아님으로 둡니다.
+        }
+
+        foreach (var deviceId in deviceIds)
+        {
+            try
+            {
+                using var device = enumerator.GetDevice(deviceId);
+                if (device.State != DeviceState.Active)
+                {
+                    continue;
+                }
+
+                var endpointVolume = device.AudioEndpointVolume;
+                results.Add(new DeviceLevelSnapshot(
+                    deviceId,
+                    (int)Math.Round(endpointVolume.MasterVolumeLevelScalar * 100),
+                    endpointVolume.Mute,
+                    string.Equals(deviceId, defaultDeviceId, StringComparison.Ordinal)));
+            }
+            catch
+            {
+                // 읽는 사이 빠진 장치는 건너뜁니다. 다음 전체 새로고침이 정리합니다.
+            }
+        }
+
+        return results;
+    }
+
     public void SetVolume(string deviceId, int volume)
     {
         var stopwatch = Stopwatch.StartNew();

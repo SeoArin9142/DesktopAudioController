@@ -31,4 +31,10 @@ public interface IAudioDeviceCatalogService
     /// 지정한 장치를 기본 출력 장치로 설정합니다.
     /// </summary>
     void SetAsDefault(string deviceId);
+
+    /// <summary>
+    /// 지정한 연결된 장치들의 현재 볼륨·음소거·기본 장치 여부를 장치 열거 없이 읽습니다.
+    /// 읽지 못한 장치(빠졌거나 오류)는 결과에서 빠집니다.
+    /// </summary>
+    IReadOnlyList<DeviceLevelSnapshot> ReadDeviceLevels(IReadOnlyCollection<string> deviceIds);
 }
