@@ -41,6 +41,38 @@ public sealed class WorkerBackedAudioSessionService : IAudioSessionService, IDis
 
     public void SetSessionOutputDevice(string deviceId, string sessionId, string targetDeviceId)
     {
+        // 같은 exe를 --change-session-output 모드로 실행하고 JSON 결과 파일로 성공/실패를 받습니다.
+        RunOutputChangeWorker(
+            "세션 출력 변경",
+            $"deviceId={deviceId} sessionId={sessionId} targetDeviceId={targetDeviceId}",
+            (startInfo, resultOutputPath) => AudioSessionOutputChangeCommand.Apply(
+                startInfo,
+                deviceId,
+                sessionId,
+                targetDeviceId,
+                resultOutputPath,
+                AppLog.IsDebugEnabled));
+    }
+
+    public int SetProcessOutputDevice(string processName, string targetDeviceId)
+    {
+        var result = RunOutputChangeWorker(
+            "프로세스 출력 변경",
+            $"processName={processName} deviceId={(string.IsNullOrWhiteSpace(targetDeviceId) ? "(Windows 기본)" : targetDeviceId)}",
+            (startInfo, resultOutputPath) => AudioProcessOutputChangeCommand.Apply(
+                startInfo,
+                processName,
+                targetDeviceId,
+                resultOutputPath,
+                AppLog.IsDebugEnabled));
+        return result?.ChangedProcessCount ?? 0;
+    }
+
+    private AudioSessionOutputChangeResult? RunOutputChangeWorker(
+        string operationName,
+        string logDetail,
+        Action<ProcessStartInfo, string> applyArguments)
+    {
         var stopwatch = Stopwatch.StartNew();
         var tempOutputPath = Path.Combine(
             Path.GetTempPath(),
@@ -55,26 +87,19 @@ public sealed class WorkerBackedAudioSessionService : IAudioSessionService, IDis
                 WindowStyle = ProcessWindowStyle.Hidden,
                 WorkingDirectory = Path.GetDirectoryName(_executablePath) ?? Environment.CurrentDirectory
             };
-            AudioSessionOutputChangeCommand.Apply(
-                startInfo,
-                deviceId,
-                sessionId,
-                targetDeviceId,
-                tempOutputPath,
-                AppLog.IsDebugEnabled);
+            applyArguments(startInfo, tempOutputPath);
 
-            // 같은 exe를 --change-session-output 모드로 실행하고 JSON 결과 파일로 성공/실패를 받습니다.
             AppLog.Info(
                 "WorkerBackedAudioSessionService",
-                $"세션 출력 변경 워커 시작 deviceId={deviceId} sessionId={sessionId} targetDeviceId={targetDeviceId} timeoutMs={(int)OutputChangeTimeout.TotalMilliseconds}");
+                $"{operationName} 워커 시작 {logDetail} timeoutMs={(int)OutputChangeTimeout.TotalMilliseconds}");
 
             using var process = Process.Start(startInfo)
-                ?? throw new InvalidOperationException("세션 출력 변경 워커 프로세스를 시작하지 못했습니다.");
+                ?? throw new InvalidOperationException($"{operationName} 워커 프로세스를 시작하지 못했습니다.");
 
             if (!process.WaitForExit((int)OutputChangeTimeout.TotalMilliseconds))
             {
                 TryKill(process);
-                throw new TimeoutException("세션 출력 변경 워커가 제한 시간 안에 끝나지 않았습니다.");
+                throw new TimeoutException($"{operationName} 워커가 제한 시간 안에 끝나지 않았습니다.");
             }
 
             var result = TryReadResult(tempOutputPath);
@@ -83,7 +108,7 @@ public sealed class WorkerBackedAudioSessionService : IAudioSessionService, IDis
                 var message = result?.ErrorMessage;
                 if (string.IsNullOrWhiteSpace(message))
                 {
-                    message = $"세션 출력 변경 워커가 비정상 종료했습니다. exitCode={process.ExitCode}";
+                    message = $"{operationName} 워커가 비정상 종료했습니다. exitCode={process.ExitCode}";
                 }
 
                 throw new InvalidOperationException(message);
@@ -91,12 +116,13 @@ public sealed class WorkerBackedAudioSessionService : IAudioSessionService, IDis
 
             if (result is { Success: false })
             {
-                throw new InvalidOperationException(result.ErrorMessage ?? "세션 출력 변경 워커가 실패했습니다.");
+                throw new InvalidOperationException(result.ErrorMessage ?? $"{operationName} 워커가 실패했습니다.");
             }
 
             AppLog.Info(
                 "WorkerBackedAudioSessionService",
-                $"세션 출력 변경 워커 완료 elapsedMs={stopwatch.ElapsedMilliseconds}");
+                $"{operationName} 워커 완료 elapsedMs={stopwatch.ElapsedMilliseconds}");
+            return result;
         }
         finally
         {

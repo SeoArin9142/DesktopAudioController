@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using DesktopAudioController.Infrastructure;
@@ -17,6 +18,8 @@ public sealed class SettingsViewModel : ObservableObject
         public required IReadOnlyList<AudioDeviceInfo> Devices { get; init; }
 
         public required AppSettings Settings { get; init; }
+
+        public IReadOnlyList<string> RunningProcessNames { get; init; } = [];
     }
 
     // 설정 파일 입출력을 담당하는 서비스입니다.
@@ -61,6 +64,33 @@ public sealed class SettingsViewModel : ObservableObject
     // 설정창을 열었을 때 저장돼 있던 디버그 로그 상태입니다.
     private bool _loadedEnableDebugLogs;
 
+    // 마지막으로 읽은 프로필 원본입니다. 편집 값이 없는 프로필의 기본 장치·앱별 출력을 채울 때 씁니다.
+    private Dictionary<string, AudioProfile> _profilesById = new(StringComparer.Ordinal);
+
+    // 저장 전까지 프로필별로 들고 있는 기본 장치·앱별 출력·단축키 편집 값입니다.
+    private readonly Dictionary<string, ProfileDetailEdit> _profileDetailEdits = new(StringComparer.Ordinal);
+
+    // 지금 편집 영역에 올라와 있는 프로필 ID입니다.
+    private string? _editingProfileId;
+
+    // 선택한 프로필의 기본 출력 장치 편집 값입니다.
+    private string _selectedProfileDefaultDeviceId = string.Empty;
+
+    // 선택한 프로필의 단축키 편집 값입니다.
+    private string _selectedProfileHotkey = string.Empty;
+
+    // 자동 프로필 전환 사용 여부의 내부 필드입니다.
+    private bool _autoProfileSwitchEnabled;
+
+    // 자동 전환 알림 표시 여부의 내부 필드입니다.
+    private bool _showAutoProfileNotifications = true;
+
+    // 프로필 단축키 사용 여부의 내부 필드입니다.
+    private bool _enableProfileHotkeys;
+
+    // 기본 프로필 ID의 내부 필드입니다.
+    private string _autoProfileFallbackProfileId = string.Empty;
+
     /// <summary>
     /// 설정 창에서 사용할 서비스들을 주입받습니다.
     /// </summary>
@@ -85,6 +115,110 @@ public sealed class SettingsViewModel : ObservableObject
     /// 사용자가 직접 저장한 수동 오디오 프로필 목록입니다.
     /// </summary>
     public ObservableCollection<AudioProfileSelectionViewModel> AudioProfiles { get; } = [];
+
+    /// <summary>
+    /// 프로필의 기본 출력 장치 선택지입니다. 첫 항목은 "바꾸지 않음"입니다.
+    /// </summary>
+    public ObservableCollection<DeviceOptionViewModel> DefaultDeviceOptions { get; } = [];
+
+    /// <summary>
+    /// 앱별 출력 대상 장치 선택지입니다. 첫 항목은 "Windows 기본 장치 따름"입니다.
+    /// </summary>
+    public ObservableCollection<DeviceOptionViewModel> RouteDeviceOptions { get; } = [];
+
+    /// <summary>
+    /// 선택한 프로필의 앱별 출력 목록입니다.
+    /// </summary>
+    public ObservableCollection<ProgramOutputRouteViewModel> SelectedProfileRoutes { get; } = [];
+
+    /// <summary>
+    /// 자동 프로필 전환 규칙 목록입니다. 위에 있을수록 우선합니다.
+    /// </summary>
+    public ObservableCollection<AutoProfileRuleViewModel> AutoProfileRules { get; } = [];
+
+    /// <summary>
+    /// 기본 프로필 선택지입니다. 첫 항목은 "(지정 안 함)"입니다.
+    /// </summary>
+    public ObservableCollection<AudioProfileSelectionViewModel> FallbackProfileOptions { get; } = [];
+
+    /// <summary>
+    /// 규칙이 끝났을 때 동작 선택지입니다.
+    /// </summary>
+    public IReadOnlyList<RestoreModeOptionViewModel> RestoreModeOptions { get; } =
+    [
+        new(AutoProfileRestoreMode.PreviousProfile, "이전 프로필로"),
+        new(AutoProfileRestoreMode.FallbackProfile, "기본 프로필로"),
+        new(AutoProfileRestoreMode.KeepCurrent, "그대로 두기")
+    ];
+
+    /// <summary>
+    /// 설정창을 열 때 창이 있는 실행 중 프로그램 이름입니다. 프로그램 이름 입력 칸의 추천 목록으로 씁니다.
+    /// </summary>
+    public ObservableCollection<string> RunningProcessNames { get; } = [];
+
+    /// <summary>
+    /// 이번 설정창에서 "프로필 적용"을 누른 프로필 ID입니다. 창이 닫힌 뒤 기본 장치·앱별 출력을 적용하는 데 씁니다.
+    /// </summary>
+    public string? AppliedProfileIdInSession { get; private set; }
+
+    /// <summary>
+    /// 선택한 프로필을 적용할 때 바꿀 기본 출력 장치 ID입니다. 비어 있으면 바꾸지 않습니다.
+    /// </summary>
+    public string SelectedProfileDefaultDeviceId
+    {
+        get => _selectedProfileDefaultDeviceId;
+        set => SetProperty(ref _selectedProfileDefaultDeviceId, value ?? string.Empty);
+    }
+
+    /// <summary>
+    /// 선택한 프로필의 전역 단축키입니다.
+    /// </summary>
+    public string SelectedProfileHotkey
+    {
+        get => _selectedProfileHotkey;
+        set => SetProperty(ref _selectedProfileHotkey, value ?? string.Empty);
+    }
+
+    /// <summary>
+    /// 실행 중인 프로그램에 맞춰 프로필을 자동으로 바꿀지 여부입니다.
+    /// </summary>
+    public bool AutoProfileSwitchEnabled
+    {
+        get => _autoProfileSwitchEnabled;
+        set => SetProperty(ref _autoProfileSwitchEnabled, value);
+    }
+
+    /// <summary>
+    /// 자동 전환·단축키 적용 때 트레이 알림을 띄울지 여부입니다.
+    /// </summary>
+    public bool ShowAutoProfileNotifications
+    {
+        get => _showAutoProfileNotifications;
+        set => SetProperty(ref _showAutoProfileNotifications, value);
+    }
+
+    /// <summary>
+    /// 프로필별 전역 단축키를 등록할지 여부입니다.
+    /// </summary>
+    public bool EnableProfileHotkeys
+    {
+        get => _enableProfileHotkeys;
+        set => SetProperty(ref _enableProfileHotkeys, value);
+    }
+
+    /// <summary>
+    /// "기본 프로필로" 규칙이 끝났을 때 돌아갈 프로필 ID입니다.
+    /// </summary>
+    public string AutoProfileFallbackProfileId
+    {
+        get => _autoProfileFallbackProfileId;
+        set => SetProperty(ref _autoProfileFallbackProfileId, value ?? string.Empty);
+    }
+
+    /// <summary>
+    /// 자동 전환 규칙이 하나도 없는지 여부입니다.
+    /// </summary>
+    public bool HasNoAutoProfileRules => AutoProfileRules.Count == 0;
 
     /// <summary>
     /// Windows 자동 실행 시 최소화 여부입니다.
@@ -185,6 +319,8 @@ public sealed class SettingsViewModel : ObservableObject
             if (SetProperty(ref _selectedAudioProfile, value))
             {
                 OnPropertyChanged(nameof(HasSelectedAudioProfile));
+                CommitSelectedProfileDetail();
+                LoadSelectedProfileDetail();
             }
         }
     }
@@ -229,6 +365,7 @@ public sealed class SettingsViewModel : ObservableObject
         RequiresRestartToEnableDebugLogs = false;
         var currentSettings = _settingsService.Load();
         var savePlan = BuildSavePlan(currentSettings);
+        AutoProfileSettingsValidator.ThrowIfInvalid(savePlan.Settings);
         if (savePlan.PreservedConfiguredVisibleDevices)
         {
             AppLog.Warn(
@@ -315,10 +452,14 @@ public sealed class SettingsViewModel : ObservableObject
             ?? throw new InvalidOperationException("선택한 프로필을 설정 파일에서 찾지 못했습니다.");
         var currentUiSettings = BuildSavePlan(persistedSettings).Settings;
 
+        // 저장 전 편집 값(기본 장치·앱별 출력)도 함께 적용되도록 편집 중인 프로필 값을 씁니다.
+        profile = currentUiSettings.AudioProfiles.FirstOrDefault(item => item.Id == profile.Id) ?? profile;
+
         AppLog.Info(
             "SettingsViewModel",
             $"수동 프로필 적용 profileId={profile.Id} name={profile.Name} visibleDevices={profile.VisibleDeviceIds.Count} programPreferences={profile.ProgramAudioPreferences.Count}");
         ApplyPersistedSettings(AudioProfileStore.ApplyProfile(currentUiSettings, profile));
+        AppliedProfileIdInSession = profile.Id;
     }
 
     /// <summary>
@@ -345,6 +486,8 @@ public sealed class SettingsViewModel : ObservableObject
         }
 
         _settingsService.Save(currentSettings);
+        _profileDetailEdits.Remove(deletedProfileId);
+        _editingProfileId = null;
         RefreshAudioProfiles(currentSettings.AudioProfiles, AudioProfileStore.FindAppliedProfileId(currentSettings));
         AppLog.Info("SettingsViewModel", $"수동 프로필 삭제 profileId={deletedProfileId}");
     }
@@ -375,7 +518,8 @@ public sealed class SettingsViewModel : ObservableObject
         return new SettingsSnapshot
         {
             Settings = _settingsService.Load(),
-            Devices = _audioDeviceCatalogService.GetAvailableOutputDevices().ToList()
+            Devices = _audioDeviceCatalogService.GetAvailableOutputDevices().ToList(),
+            RunningProcessNames = ReadWindowedProcessNames()
         };
     }
 
@@ -384,6 +528,8 @@ public sealed class SettingsViewModel : ObservableObject
     /// </summary>
     private void ApplySnapshot(SettingsSnapshot snapshot)
     {
+        _profileDetailEdits.Clear();
+        _editingProfileId = null;
         AvailableDevices.Clear();
         foreach (var device in snapshot.Devices)
         {
@@ -405,14 +551,43 @@ public sealed class SettingsViewModel : ObservableObject
         IncludePreReleaseUpdates = snapshot.Settings.IncludePreReleaseUpdates;
         _loadedEnableDebugLogs = snapshot.Settings.EnableDebugLogs;
         EnableDebugLogs = snapshot.Settings.EnableDebugLogs;
+        RefreshDeviceOptions(snapshot.Devices);
+        if (snapshot.RunningProcessNames.Count > 0)
+        {
+            RunningProcessNames.Clear();
+            foreach (var processName in snapshot.RunningProcessNames)
+            {
+                RunningProcessNames.Add(processName);
+            }
+        }
+
+        AutoProfileSwitchEnabled = snapshot.Settings.AutoProfileSwitchEnabled;
+        ShowAutoProfileNotifications = snapshot.Settings.ShowAutoProfileNotifications;
+        EnableProfileHotkeys = snapshot.Settings.EnableProfileHotkeys;
+        AutoProfileRules.Clear();
+        foreach (var rule in snapshot.Settings.AutoProfileRules)
+        {
+            AutoProfileRules.Add(new AutoProfileRuleViewModel
+            {
+                Id = rule.Id,
+                Name = rule.Name,
+                IsEnabled = rule.IsEnabled,
+                ProcessNamesText = string.Join(", ", rule.ProcessNames),
+                ProfileId = rule.ProfileId,
+                RestoreMode = rule.RestoreMode
+            });
+        }
+
+        RenumberAutoProfileRules();
         RefreshAudioProfiles(snapshot.Settings.AudioProfiles, AudioProfileStore.FindAppliedProfileId(snapshot.Settings));
+        AutoProfileFallbackProfileId = snapshot.Settings.AutoProfileFallbackProfileId;
         OnPropertyChanged(nameof(ShowsDebugLogRestartWarning));
         RequiresRestartToEnableDebugLogs = false;
     }
 
     private SettingsSavePlan BuildSavePlan(AppSettings currentSettings)
     {
-        return SettingsSavePlanner.Build(
+        var savePlan = SettingsSavePlanner.Build(
             currentSettings,
             [.. AvailableDevices.Select(device => new VisibleDeviceSelection(device.Id, device.IsSelected))],
             StartMinimized,
@@ -424,6 +599,231 @@ public sealed class SettingsViewModel : ObservableObject
             IncludePreReleaseUpdates,
             EnableDebugLogs,
             _preserveConfiguredVisibleDevicesOnEmptySave);
+        ApplyAutoProfileEdits(savePlan.Settings);
+        return savePlan;
+    }
+
+    /// <summary>
+    /// 설정창의 프로필 상세·자동 전환 편집 값을 저장할 설정 모델에 덮어씁니다.
+    /// </summary>
+    private void ApplyAutoProfileEdits(AppSettings settings)
+    {
+        CommitSelectedProfileDetail();
+        foreach (var profile in settings.AudioProfiles)
+        {
+            if (!_profileDetailEdits.TryGetValue(profile.Id, out var edit))
+            {
+                continue;
+            }
+
+            profile.DefaultOutputDeviceId = edit.DefaultOutputDeviceId;
+            profile.ProgramOutputRoutes = AudioProfileStore.CloneProgramOutputRoutes(edit.ProgramOutputRoutes);
+            profile.Hotkey = edit.Hotkey;
+        }
+
+        settings.AutoProfileSwitchEnabled = AutoProfileSwitchEnabled;
+        settings.ShowAutoProfileNotifications = ShowAutoProfileNotifications;
+        settings.EnableProfileHotkeys = EnableProfileHotkeys;
+        settings.AutoProfileFallbackProfileId = AutoProfileFallbackProfileId;
+        settings.AutoProfileRules = AutoProfileRules
+            .Select(rule => new AutoProfileRule
+            {
+                Id = rule.Id,
+                Name = rule.Name.Trim(),
+                IsEnabled = rule.IsEnabled,
+                ProcessNames = ProcessNameMatcher.SplitList(rule.ProcessNamesText),
+                ProfileId = rule.ProfileId,
+                RestoreMode = rule.RestoreMode
+            })
+            .ToList();
+    }
+
+    /// <summary>
+    /// 선택한 프로필에 앱별 출력 줄을 하나 추가합니다.
+    /// </summary>
+    public void AddSelectedProfileRoute(string? processName = null)
+    {
+        if (SelectedAudioProfile is null)
+        {
+            return;
+        }
+
+        SelectedProfileRoutes.Add(new ProgramOutputRouteViewModel
+        {
+            ProcessName = processName ?? string.Empty,
+            TargetDeviceId = string.Empty
+        });
+    }
+
+    public void RemoveSelectedProfileRoute(ProgramOutputRouteViewModel route)
+    {
+        SelectedProfileRoutes.Remove(route);
+    }
+
+    /// <summary>
+    /// 자동 전환 규칙을 목록 맨 아래(가장 낮은 우선순위)에 추가합니다.
+    /// </summary>
+    public void AddAutoProfileRule()
+    {
+        AutoProfileRules.Add(new AutoProfileRuleViewModel
+        {
+            ProfileId = SelectedAudioProfile?.Id ?? AudioProfiles.FirstOrDefault()?.Id ?? string.Empty
+        });
+        RenumberAutoProfileRules();
+    }
+
+    public void RemoveAutoProfileRule(AutoProfileRuleViewModel rule)
+    {
+        AutoProfileRules.Remove(rule);
+        RenumberAutoProfileRules();
+    }
+
+    /// <summary>
+    /// 규칙을 위(-1)나 아래(+1)로 옮겨 우선순위를 바꿉니다.
+    /// </summary>
+    public void MoveAutoProfileRule(AutoProfileRuleViewModel rule, int offset)
+    {
+        var index = AutoProfileRules.IndexOf(rule);
+        var newIndex = index + offset;
+        if (index < 0 || newIndex < 0 || newIndex >= AutoProfileRules.Count)
+        {
+            return;
+        }
+
+        AutoProfileRules.Move(index, newIndex);
+        RenumberAutoProfileRules();
+    }
+
+    private void RenumberAutoProfileRules()
+    {
+        for (var index = 0; index < AutoProfileRules.Count; index++)
+        {
+            AutoProfileRules[index].Priority = index + 1;
+        }
+
+        OnPropertyChanged(nameof(HasNoAutoProfileRules));
+    }
+
+    /// <summary>
+    /// 편집 영역의 값을 현재 편집 중인 프로필 편집 값으로 보관합니다.
+    /// </summary>
+    private void CommitSelectedProfileDetail()
+    {
+        if (_editingProfileId is null)
+        {
+            return;
+        }
+
+        _profileDetailEdits[_editingProfileId] = new ProfileDetailEdit
+        {
+            DefaultOutputDeviceId = SelectedProfileDefaultDeviceId,
+            ProgramOutputRoutes = SelectedProfileRoutes
+                .Select(route => new ProgramOutputRoute
+                {
+                    ProcessName = ProcessNameMatcher.Normalize(route.ProcessName),
+                    TargetDeviceId = route.TargetDeviceId
+                })
+                .Where(route => route.ProcessName.Length > 0)
+                .ToList(),
+            Hotkey = SelectedProfileHotkey.Trim()
+        };
+    }
+
+    private void LoadSelectedProfileDetail()
+    {
+        SelectedProfileRoutes.Clear();
+        _editingProfileId = SelectedAudioProfile?.Id;
+        if (_editingProfileId is null)
+        {
+            SelectedProfileDefaultDeviceId = string.Empty;
+            SelectedProfileHotkey = string.Empty;
+            return;
+        }
+
+        if (!_profileDetailEdits.TryGetValue(_editingProfileId, out var edit))
+        {
+            _profilesById.TryGetValue(_editingProfileId, out var profile);
+            edit = new ProfileDetailEdit
+            {
+                DefaultOutputDeviceId = profile?.DefaultOutputDeviceId ?? string.Empty,
+                ProgramOutputRoutes = AudioProfileStore.CloneProgramOutputRoutes(profile?.ProgramOutputRoutes),
+                Hotkey = profile?.Hotkey ?? string.Empty
+            };
+        }
+
+        EnsureDeviceOption(DefaultDeviceOptions, edit.DefaultOutputDeviceId);
+        SelectedProfileDefaultDeviceId = edit.DefaultOutputDeviceId;
+        SelectedProfileHotkey = edit.Hotkey;
+        foreach (var route in edit.ProgramOutputRoutes)
+        {
+            EnsureDeviceOption(RouteDeviceOptions, route.TargetDeviceId);
+            SelectedProfileRoutes.Add(new ProgramOutputRouteViewModel
+            {
+                ProcessName = route.ProcessName,
+                TargetDeviceId = route.TargetDeviceId
+            });
+        }
+    }
+
+    private void RefreshDeviceOptions(IReadOnlyList<AudioDeviceInfo> devices)
+    {
+        DefaultDeviceOptions.Clear();
+        RouteDeviceOptions.Clear();
+        DefaultDeviceOptions.Add(new DeviceOptionViewModel(string.Empty, "(바꾸지 않음)"));
+        RouteDeviceOptions.Add(new DeviceOptionViewModel(string.Empty, "Windows 기본 장치 따름"));
+        foreach (var device in devices.OrderBy(device => device.Name, StringComparer.CurrentCultureIgnoreCase))
+        {
+            var name = device.IsConnected ? device.Name : $"{device.Name} (연결 안 됨)";
+            DefaultDeviceOptions.Add(new DeviceOptionViewModel(device.Id, name));
+            RouteDeviceOptions.Add(new DeviceOptionViewModel(device.Id, name));
+        }
+    }
+
+    /// <summary>
+    /// 지금 목록에 없는 장치(뽑아 둔 헤드셋 등)를 저장해 둔 경우에도 값이 사라지지 않게 선택지를 추가합니다.
+    /// </summary>
+    private static void EnsureDeviceOption(ObservableCollection<DeviceOptionViewModel> options, string deviceId)
+    {
+        if (string.IsNullOrWhiteSpace(deviceId) || options.Any(option => option.Id == deviceId))
+        {
+            return;
+        }
+
+        options.Add(new DeviceOptionViewModel(deviceId, "(현재 없는 장치)"));
+    }
+
+    /// <summary>
+    /// 창이 있는 실행 중 프로그램 이름을 읽습니다. 백그라운드 프로세스는 너무 많아 추천 목록에서 뺍니다.
+    /// </summary>
+    private static IReadOnlyList<string> ReadWindowedProcessNames()
+    {
+        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        try
+        {
+            foreach (var process in Process.GetProcesses())
+            {
+                using (process)
+                {
+                    try
+                    {
+                        if (process.MainWindowHandle != IntPtr.Zero)
+                        {
+                            names.Add(process.ProcessName);
+                        }
+                    }
+                    catch
+                    {
+                        // 읽는 사이 종료됐거나 접근이 막힌 프로세스는 건너뜁니다.
+                    }
+                }
+            }
+        }
+        catch (Exception exception)
+        {
+            AppLog.Warn("SettingsViewModel", "실행 중 프로그램 목록 읽기 실패", exception);
+        }
+
+        return names.OrderBy(name => name, StringComparer.OrdinalIgnoreCase).ToList();
     }
 
     private void ApplyPersistedSettings(AppSettings settings)
@@ -457,13 +857,43 @@ public sealed class SettingsViewModel : ObservableObject
 
     private void RefreshAudioProfiles(IReadOnlyList<AudioProfile> profiles, string? preferredSelectedProfileId = null)
     {
+        CommitSelectedProfileDetail();
+        _profilesById = profiles.ToDictionary(profile => profile.Id, StringComparer.Ordinal);
+        _editingProfileId = null;
+        _selectedAudioProfile = null;
+        OnPropertyChanged(nameof(SelectedAudioProfile));
+
+        // 콤보 상자 목록을 비우면 WPF 가 선택값을 null 로 되돌려 쓰므로, 비우기 전에 규칙·기본 프로필 값을 잡아 둡니다.
+        var ruleProfileIds = AutoProfileRules.ToDictionary(rule => rule, rule => rule.ProfileId);
+        var fallbackProfileId = AutoProfileFallbackProfileId;
         AudioProfiles.Clear();
         foreach (var profile in profiles.OrderBy(profile => profile.Name, StringComparer.CurrentCultureIgnoreCase))
         {
             AudioProfiles.Add(new AudioProfileSelectionViewModel(profile.Id, profile.Name));
         }
 
+        FallbackProfileOptions.Clear();
+        FallbackProfileOptions.Add(new AudioProfileSelectionViewModel(string.Empty, "(지정 안 함)"));
+        foreach (var profile in AudioProfiles)
+        {
+            FallbackProfileOptions.Add(profile);
+        }
+
+        // 값을 한 번 비웠다가 다시 넣어 콤보 상자가 새 목록에서 선택을 다시 찾게 합니다.
+        AutoProfileFallbackProfileId = string.Empty;
+        AutoProfileFallbackProfileId = fallbackProfileId;
+        foreach (var (rule, ruleProfileId) in ruleProfileIds)
+        {
+            rule.ProfileId = string.Empty;
+            rule.ProfileId = ruleProfileId;
+        }
+
         SelectedAudioProfile = AudioProfiles.FirstOrDefault(profile => profile.Id == preferredSelectedProfileId);
+        if (SelectedAudioProfile is null)
+        {
+            LoadSelectedProfileDetail();
+        }
+
         OnPropertyChanged(nameof(HasAudioProfiles));
         OnPropertyChanged(nameof(HasSelectedAudioProfile));
     }

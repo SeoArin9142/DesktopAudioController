@@ -38,6 +38,37 @@ internal static class AudioSessionOutputChangeWorker
         }
     }
 
+    public static int RunForProcess(AudioProcessOutputChangeCommand.ParsedCommand command)
+    {
+        AppLog.Info(
+            "AudioSessionOutputChangeWorker",
+            $"프로세스 출력 변경 워커 시작 processName={command.ProcessName} deviceId={command.TargetDeviceId} resultOutputPath={command.ResultOutputPath}");
+
+        try
+        {
+            var metadataCacheService = new CachedProcessMetadataService();
+            using var sessionService = new NativeAudioSessionService(metadataCacheService);
+            var changedCount = sessionService.SetProcessOutputDevice(command.ProcessName, command.TargetDeviceId);
+            WriteResult(command.ResultOutputPath, new AudioSessionOutputChangeResult
+            {
+                Success = true,
+                ChangedProcessCount = changedCount
+            });
+            AppLog.Info("AudioSessionOutputChangeWorker", $"프로세스 출력 변경 워커 완료 changedProcessCount={changedCount}");
+            return 0;
+        }
+        catch (Exception exception)
+        {
+            AppLog.Error("AudioSessionOutputChangeWorker", "프로세스 출력 변경 워커 실패", exception);
+            WriteResult(command.ResultOutputPath, new AudioSessionOutputChangeResult
+            {
+                Success = false,
+                ErrorMessage = exception.Message
+            });
+            return 1;
+        }
+    }
+
     private static void WriteResult(string resultOutputPath, AudioSessionOutputChangeResult result)
     {
         try

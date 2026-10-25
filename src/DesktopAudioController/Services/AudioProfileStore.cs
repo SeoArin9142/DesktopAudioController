@@ -42,7 +42,12 @@ internal static class AudioProfileStore
             EnableDebugLogs = currentSettings.EnableDebugLogs,
             ProgramAudioPreferences = CloneProgramAudioPreferences(profile.ProgramAudioPreferences),
             LastAppliedAudioProfileId = profile.Id,
-            AudioProfiles = CloneProfiles(currentSettings.AudioProfiles)
+            AudioProfiles = CloneProfiles(currentSettings.AudioProfiles),
+            AutoProfileSwitchEnabled = currentSettings.AutoProfileSwitchEnabled,
+            AutoProfileRules = CloneAutoProfileRules(currentSettings.AutoProfileRules),
+            AutoProfileFallbackProfileId = currentSettings.AutoProfileFallbackProfileId,
+            ShowAutoProfileNotifications = currentSettings.ShowAutoProfileNotifications,
+            EnableProfileHotkeys = currentSettings.EnableProfileHotkeys
         };
     }
 
@@ -92,8 +97,51 @@ internal static class AudioProfileStore
             ShowOnlyConnectedDevices = profile.ShowOnlyConnectedDevices,
             ShowSystemSounds = profile.ShowSystemSounds,
             ShowOnlyActiveSessions = profile.ShowOnlyActiveSessions,
-            ProgramAudioPreferences = CloneProgramAudioPreferences(profile.ProgramAudioPreferences)
+            ProgramAudioPreferences = CloneProgramAudioPreferences(profile.ProgramAudioPreferences),
+            DefaultOutputDeviceId = profile.DefaultOutputDeviceId,
+            ProgramOutputRoutes = CloneProgramOutputRoutes(profile.ProgramOutputRoutes),
+            Hotkey = profile.Hotkey
         };
+    }
+
+    public static List<ProgramOutputRoute> CloneProgramOutputRoutes(IEnumerable<ProgramOutputRoute>? routes)
+    {
+        return (routes ?? [])
+            .Where(route => route is not null)
+            .Select(route => new ProgramOutputRoute
+            {
+                ProcessName = route.ProcessName,
+                TargetDeviceId = route.TargetDeviceId
+            })
+            .ToList();
+    }
+
+    public static List<AutoProfileRule> CloneAutoProfileRules(IEnumerable<AutoProfileRule>? rules)
+    {
+        return (rules ?? [])
+            .Where(rule => rule is not null)
+            .Select(rule => new AutoProfileRule
+            {
+                Id = rule.Id,
+                Name = rule.Name,
+                IsEnabled = rule.IsEnabled,
+                ProcessNames = [.. rule.ProcessNames ?? []],
+                ProfileId = rule.ProfileId,
+                RestoreMode = rule.RestoreMode
+            })
+            .ToList();
+    }
+
+    /// <summary>
+    /// 표시 옵션만 바꾸는 경로에서 자동 전환 설정을 원본 그대로 이어 붙입니다.
+    /// </summary>
+    public static void CopyAutoProfileSettings(AppSettings source, AppSettings destination)
+    {
+        destination.AutoProfileSwitchEnabled = source.AutoProfileSwitchEnabled;
+        destination.AutoProfileRules = CloneAutoProfileRules(source.AutoProfileRules);
+        destination.AutoProfileFallbackProfileId = source.AutoProfileFallbackProfileId;
+        destination.ShowAutoProfileNotifications = source.ShowAutoProfileNotifications;
+        destination.EnableProfileHotkeys = source.EnableProfileHotkeys;
     }
 
     public static List<ProgramAudioPreference> CloneProgramAudioPreferences(IEnumerable<ProgramAudioPreference> preferences)

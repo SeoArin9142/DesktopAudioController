@@ -48,7 +48,17 @@ public sealed class TrayMenuService : IDisposable
         Action RefreshDevices,
         Action<string> ApplyProfile,
         Action OpenLogFolder,
-        Action ExitApplication);
+        Action ExitApplication,
+        AutoProfileMenu? AutoProfile = null);
+
+    /// <summary>
+    /// 트레이에 보여 줄 현재 프로필과 자동 전환 상태입니다.
+    /// </summary>
+    public sealed record AutoProfileMenu(
+        string CurrentProfileText,
+        bool IsAutoSwitchEnabled,
+        bool IsAutoSwitchPaused,
+        Action ToggleAutoSwitchPause);
 
     public void Refresh(MenuState state, bool force = false)
     {
@@ -92,7 +102,25 @@ public sealed class TrayMenuService : IDisposable
         trayMenu.Items.Add("창 열기", null, (_, _) => state.OpenMainWindow());
         trayMenu.Items.Add("설정 열기", null, (_, _) => state.OpenSettings());
         trayMenu.Items.Add("장치 다시 읽기", null, (_, _) => state.RefreshDevices());
+        if (state.AutoProfile is not null)
+        {
+            trayMenu.Items.Add(new Forms.ToolStripMenuItem(state.AutoProfile.CurrentProfileText)
+            {
+                Enabled = false
+            });
+        }
+
         trayMenu.Items.Add(BuildAudioProfileMenu(state));
+        if (state.AutoProfile is { IsAutoSwitchEnabled: true } autoProfile)
+        {
+            var pauseItem = new Forms.ToolStripMenuItem("자동 전환 일시정지")
+            {
+                Checked = autoProfile.IsAutoSwitchPaused,
+                CheckOnClick = false
+            };
+            pauseItem.Click += (_, _) => autoProfile.ToggleAutoSwitchPause();
+            trayMenu.Items.Add(pauseItem);
+        }
         trayMenu.Items.Add("로그 폴더 열기", null, (_, _) => state.OpenLogFolder());
 
         if (state.Devices.Count > 0)
@@ -200,7 +228,11 @@ public sealed class TrayMenuService : IDisposable
                 .OrderBy(profile => profile.Name, StringComparer.CurrentCultureIgnoreCase)
                 .Select(profile => $"{profile.Id}|{profile.Name}"));
 
-        return $"{deviceSignature}\nminimizeToTray:{state.MinimizeToTray}\nprofiles:{appliedProfileId}\n{profileSignature}";
+        var autoProfileSignature = state.AutoProfile is null
+            ? string.Empty
+            : $"{state.AutoProfile.CurrentProfileText}|{state.AutoProfile.IsAutoSwitchEnabled}|{state.AutoProfile.IsAutoSwitchPaused}";
+
+        return $"{deviceSignature}\nminimizeToTray:{state.MinimizeToTray}\nprofiles:{appliedProfileId}\n{profileSignature}\nauto:{autoProfileSignature}";
     }
 
     private static Icon? TryLoadTrayIcon()

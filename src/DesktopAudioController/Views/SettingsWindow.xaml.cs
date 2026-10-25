@@ -73,6 +73,16 @@ public partial class SettingsWindow : Window
             DialogResult = true;
             Close();
         }
+        catch (SettingsValidationException exception)
+        {
+            AppLog.Info("SettingsWindow", $"설정 저장 보류: 입력 확인 필요 problems={exception.Problems.Count}");
+            System.Windows.MessageBox.Show(
+                this,
+                $"저장하기 전에 아래 항목을 확인해 주세요.\n\n- {string.Join("\n- ", exception.Problems)}",
+                "설정 확인 필요",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+        }
         catch (SettingsPersistenceException exception)
         {
             AppLog.Error("SettingsWindow", "설정 파일 저장 실패", exception);
@@ -447,6 +457,48 @@ public partial class SettingsWindow : Window
         catch (Exception exception)
         {
             ShowUnexpectedSettingsFailure("프로필 삭제 실패", exception);
+        }
+    }
+
+    private void AddProfileRouteButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        _viewModel.AddSelectedProfileRoute();
+    }
+
+    private void RemoveProfileRouteButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: ProgramOutputRouteViewModel route })
+        {
+            _viewModel.RemoveSelectedProfileRoute(route);
+        }
+    }
+
+    private void AddAutoProfileRuleButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        _viewModel.AddAutoProfileRule();
+    }
+
+    private void RemoveAutoProfileRuleButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: AutoProfileRuleViewModel rule })
+        {
+            _viewModel.RemoveAutoProfileRule(rule);
+        }
+    }
+
+    private void MoveAutoProfileRuleUpButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: AutoProfileRuleViewModel rule })
+        {
+            _viewModel.MoveAutoProfileRule(rule, -1);
+        }
+    }
+
+    private void MoveAutoProfileRuleDownButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: AutoProfileRuleViewModel rule })
+        {
+            _viewModel.MoveAutoProfileRule(rule, 1);
         }
     }
 

@@ -202,6 +202,7 @@ public partial class MainWindow : Window
         };
         _updateCheckTimer.Tick += UpdateCheckTimer_OnTick;
         RefreshTrayMenu(force: true);
+        InitializeAutoProfileFeatures();
         DataContext = _viewModel;
         ApplyPrimaryMonitorBounds();
         _audioNotificationService.Changed += AudioNotificationService_OnChanged;
@@ -493,6 +494,23 @@ public partial class MainWindow : Window
                 _minimizeToTray = persistedSettings.MinimizeToTray;
                 _includePreReleaseUpdates = persistedSettings.IncludePreReleaseUpdates;
                 await ReloadViewModelAsync("settings_saved");
+                var hotkeyFailures = ReloadAutoProfileConfiguration(persistedSettings, "settings_saved");
+                if (hotkeyFailures.Count > 0)
+                {
+                    System.Windows.MessageBox.Show(
+                        this,
+                        $"일부 프로필 단축키를 등록하지 못했습니다.\n\n{string.Join("\n", hotkeyFailures)}\n\n다른 프로그램(게임 오버레이, 녹화 프로그램 등)과 겹치지 않는 조합으로 바꿔 주세요.",
+                        "단축키 등록 실패",
+                        System.Windows.MessageBoxButton.OK,
+                        System.Windows.MessageBoxImage.Warning);
+                }
+
+                if (settingsViewModel.AppliedProfileIdInSession is { } appliedProfileId)
+                {
+                    // 설정 창의 "프로필 적용"은 표시 설정만 저장하므로, 기본 장치와 앱별 출력은 창이 닫힌 뒤 여기서 적용합니다.
+                    await ApplyAudioProfileCoreAsync(appliedProfileId, ProfileApplySource.SettingsWindow, "설정 창");
+                }
+
                 await CheckForUpdateInBackgroundAsync(force: true, reason: "settings_saved");
             }
         }
@@ -1017,6 +1035,7 @@ public partial class MainWindow : Window
         _sessionRefreshTimer.Tick -= SessionRefreshTimer_OnTick;
         _updateCheckTimer.Stop();
         _updateCheckTimer.Tick -= UpdateCheckTimer_OnTick;
+        DisposeAutoProfileFeatures();
         _trayMenuService.Dispose();
         base.OnClosed(e);
     }
@@ -1299,6 +1318,7 @@ public partial class MainWindow : Window
     {
         var settings = LoadSettingsForTrayMenu();
         _trayMenuService.Refresh(BuildTrayMenuState(settings), force);
+        RefreshMainProfileBar(settings);
     }
 
     private AppSettings LoadSettingsForTrayMenu()
@@ -1382,7 +1402,8 @@ public partial class MainWindow : Window
                         MessageBoxImage.Warning);
                 }
             }),
-            () => ExitApplication());
+            () => ExitApplication(),
+            BuildAutoProfileTrayMenu(settings));
     }
 
     private async Task ApplyAudioProfileFromTrayAsync(string profileId)
@@ -1398,51 +1419,18 @@ public partial class MainWindow : Window
             return;
         }
 
-        try
+        var result = await ApplyAudioProfileCoreAsync(profileId, ProfileApplySource.Tray, "트레이 메뉴");
+        if (!result.Success)
         {
-            _viewModel.FlushPendingProgramPreferenceSave();
-            var currentSettings = _settingsService.Load();
-            var profile = currentSettings.AudioProfiles.FirstOrDefault(profile =>
-                string.Equals(profile.Id, profileId, StringComparison.Ordinal))
-                ?? throw new InvalidOperationException("선택한 프로필을 설정 파일에서 찾지 못했습니다.");
-            var appliedSettings = AudioProfileStore.ApplyProfile(currentSettings, profile);
-
-            AppLog.Info(
-                "MainWindow",
-                $"트레이 수동 프로필 적용 profileId={profile.Id} name={profile.Name} visibleDevices={profile.VisibleDeviceIds.Count} programPreferences={profile.ProgramAudioPreferences.Count}");
-            _settingsService.Save(appliedSettings);
-            _minimizeToTray = appliedSettings.MinimizeToTray;
-            _includePreReleaseUpdates = appliedSettings.IncludePreReleaseUpdates;
-            _trayMenuService.InvalidateMenu();
-
-            var reloaded = await ReloadViewModelAsync("tray_profile_applied");
-            RefreshTrayMenu(force: true);
-            ShowTrayNotification("프로필 적용", $"{profile.Name} 프로필을 적용했습니다.");
-            if (!reloaded)
-            {
-                System.Windows.MessageBox.Show(
-                    this,
-                    "프로필은 저장했지만 화면 새로고침에 실패했습니다.\n장치 다시 읽기를 실행해 주세요.",
-                    "프로필 적용",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Warning);
-            }
-        }
-        catch (Exception exception)
-        {
-            AppLog.Error("MainWindow", $"트레이 수동 프로필 적용 실패 profileId={profileId}", exception);
             System.Windows.MessageBox.Show(
                 this,
-                $"프로필을 적용하지 못했습니다.\n\n원인: {exception.Message}",
+                $"프로필을 적용하지 못했습니다.\n\n원인: {result.ErrorMessage}",
                 "프로필 적용 실패",
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
         }
     }
 
-    /// <summary>
-    /// 트레이 메뉴처럼 UI 스레드가 아닐 수 있는 호출 지점을 WPF Dispatcher로 정규화합니다.
-    /// </summary>
     private void RunOnUiThread(Action action)
     {
         if (Dispatcher.CheckAccess())

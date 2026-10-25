@@ -11,6 +11,9 @@
         MinHeight="420"
         FontSize="13"
         WindowStartupLocation="CenterOwner">
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
+    </Window.Resources>
     <DockPanel Margin="16">
         <!-- 하단 버튼 영역에는 로그 폴더 바로가기와 저장/취소를 함께 둡니다. -->
         <Grid DockPanel.Dock="Bottom"
@@ -116,7 +119,7 @@
                            Text="수동 프로필" />
                 <TextBlock Margin="0,8,0,16"
                            Foreground="#666"
-                           Text="현재 장치 표시 설정과 프로그램별 볼륨, 음소거, 이름 저장값을 묶어 저장합니다. 자동으로 적용되지 않고 버튼을 누를 때만 적용됩니다."
+                           Text="현재 장치 표시 설정과 프로그램별 볼륨, 음소거, 이름 저장값을 묶어 저장합니다. 프로필마다 기본 출력 장치, 앱별 출력 장치, 단축키를 더 지정할 수 있습니다. 버튼·트레이·단축키로 적용하거나, 아래 자동 프로필 전환 규칙으로 자동 적용합니다."
                            TextWrapping="Wrap" />
 
                 <WrapPanel Margin="0,0,0,8">
@@ -140,6 +143,269 @@
                             Content="프로필 삭제"
                             IsEnabled="{Binding HasSelectedAudioProfile}" />
                 </WrapPanel>
+
+                <!-- 선택한 프로필을 적용할 때 함께 바꿀 기본 장치·앱별 출력·단축키를 편집합니다. -->
+                <Border Margin="0,0,0,8"
+                        Padding="12"
+                        CornerRadius="6"
+                        BorderBrush="#DDD"
+                        BorderThickness="1"
+                        Visibility="{Binding HasSelectedAudioProfile, Converter={StaticResource BoolToVisibility}}">
+                    <StackPanel>
+                        <TextBlock FontWeight="SemiBold"
+                                   Text="{Binding SelectedAudioProfile.Name, StringFormat='{}{0} 프로필을 적용할 때'}" />
+
+                        <Grid Margin="0,10,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="120" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock VerticalAlignment="Center"
+                                       Text="기본 출력 장치" />
+                            <ComboBox Grid.Column="1"
+                                      DisplayMemberPath="Name"
+                                      ItemsSource="{Binding DefaultDeviceOptions}"
+                                      SelectedValuePath="Id"
+                                      SelectedValue="{Binding SelectedProfileDefaultDeviceId}" />
+                        </Grid>
+
+                        <TextBlock Margin="0,12,0,4"
+                                   Text="앱별 출력 장치" />
+                        <TextBlock Margin="0,0,0,8"
+                                   Foreground="#666"
+                                   Text="실행 파일 이름(작업 관리자 '세부 정보' 탭의 이름, 예: TslGame.exe, chrome.exe, Discord.exe)을 적고 보낼 장치를 고릅니다. 지금 꺼져 있는 프로그램은 자동 전환이 켜져 있으면 실행되는 순간 적용됩니다. 이미 소리를 내고 있는 일부 앱(게임·브라우저 등)은 다시 시작해야 바뀐 장치로 나옵니다."
+                                   TextWrapping="Wrap" />
+                        <ItemsControl ItemsSource="{Binding SelectedProfileRoutes}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Margin="0,0,0,6">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="200" />
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <ComboBox IsEditable="True"
+                                                  IsTextSearchEnabled="False"
+                                                  ItemsSource="{Binding DataContext.RunningProcessNames, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                  Text="{Binding ProcessName, UpdateSourceTrigger=PropertyChanged}" />
+                                        <TextBlock Grid.Column="1"
+                                                   Margin="8,0"
+                                                   VerticalAlignment="Center"
+                                                   Text="→" />
+                                        <ComboBox Grid.Column="2"
+                                                  DisplayMemberPath="Name"
+                                                  ItemsSource="{Binding DataContext.RouteDeviceOptions, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                  SelectedValuePath="Id"
+                                                  SelectedValue="{Binding TargetDeviceId}" />
+                                        <Button Grid.Column="3"
+                                                Width="56"
+                                                Margin="8,0,0,0"
+                                                Click="RemoveProfileRouteButton_OnClick"
+                                                Content="삭제" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <Button Width="132"
+                                Margin="0,2,0,0"
+                                HorizontalAlignment="Left"
+                                Click="AddProfileRouteButton_OnClick"
+                                Content="앱별 출력 추가" />
+
+                        <Grid Margin="0,14,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="120" />
+                                <ColumnDefinition Width="200" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock VerticalAlignment="Center"
+                                       Text="단축키" />
+                            <TextBox Grid.Column="1"
+                                     VerticalContentAlignment="Center"
+                                     Text="{Binding SelectedProfileHotkey, UpdateSourceTrigger=PropertyChanged}" />
+                            <TextBlock Grid.Column="2"
+                                       Margin="8,0,0,0"
+                                       VerticalAlignment="Center"
+                                       Foreground="#666"
+                                       Text="예: Ctrl+Alt+1 (비우면 없음)"
+                                       TextWrapping="Wrap" />
+                        </Grid>
+                        <TextBlock Margin="0,8,0,0"
+                                   Foreground="#666"
+                                   Text="여기서 바꾼 값은 아래 '저장'을 눌러야 프로필에 저장됩니다."
+                                   TextWrapping="Wrap" />
+                    </StackPanel>
+                </Border>
+
+                <Separator Margin="0,8,0,16" />
+
+                <TextBlock FontSize="15"
+                           FontWeight="SemiBold"
+                           Text="자동 프로필 전환" />
+                <TextBlock Margin="0,8,0,16"
+                           Foreground="#666"
+                           Text="지정한 프로그램이 실행되면 프로필을 자동으로 바꾸고, 꺼지면 되돌립니다. 실행 중인 프로그램 이름만 2초마다 가볍게 확인합니다."
+                           TextWrapping="Wrap" />
+
+                <CheckBox Margin="0,0,0,8"
+                          IsChecked="{Binding AutoProfileSwitchEnabled}">
+                    <TextBlock Text="실행 중인 프로그램에 맞춰 프로필 자동 전환" />
+                </CheckBox>
+                <TextBlock Margin="24,-4,0,12"
+                           Foreground="#666"
+                           Text="트레이 메뉴의 '자동 전환 일시정지'로 잠시 멈출 수 있습니다. 규칙이 켜져 있는 동안 수동으로 다른 프로필을 고르면 그 프로그램이 꺼질 때까지 덮어쓰지 않습니다."
+                           TextWrapping="Wrap" />
+                <CheckBox Margin="0,0,0,8"
+                          IsChecked="{Binding ShowAutoProfileNotifications}">
+                    <TextBlock Text="자동 전환·단축키로 바뀔 때 알림 표시" />
+                </CheckBox>
+                <CheckBox Margin="0,0,0,8"
+                          IsChecked="{Binding EnableProfileHotkeys}">
+                    <TextBlock Text="프로필 단축키 사용" />
+                </CheckBox>
+                <TextBlock Margin="24,-4,0,12"
+                           Foreground="#666"
+                           Text="단축키는 위의 프로필 편집 영역에서 프로필마다 지정합니다. 다른 프로그램이 이미 쓰는 조합이면 저장할 때 안내합니다."
+                           TextWrapping="Wrap" />
+
+                <Grid Margin="0,0,0,12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="220" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Margin="0,0,8,0"
+                               VerticalAlignment="Center"
+                               Text="기본 프로필" />
+                    <ComboBox Grid.Column="1"
+                              DisplayMemberPath="Name"
+                              ItemsSource="{Binding FallbackProfileOptions}"
+                              SelectedValuePath="Id"
+                              SelectedValue="{Binding AutoProfileFallbackProfileId}" />
+                    <TextBlock Grid.Column="2"
+                               Margin="8,0,0,0"
+                               VerticalAlignment="Center"
+                               Foreground="#666"
+                               Text="'기본 프로필로'를 고른 규칙이 끝나면 적용합니다."
+                               TextWrapping="Wrap" />
+                </Grid>
+
+                <TextBlock Margin="0,0,0,8"
+                           Foreground="#666"
+                           Text="여러 규칙의 프로그램이 함께 실행 중이면 위에 있는 규칙이 우선합니다. 프로그램 이름은 쉼표로 여러 개 적을 수 있습니다."
+                           TextWrapping="Wrap" />
+                <TextBlock Margin="0,0,0,8"
+                           Foreground="#999"
+                           Text="아직 규칙이 없습니다."
+                           Visibility="{Binding HasNoAutoProfileRules, Converter={StaticResource BoolToVisibility}}" />
+
+                <ItemsControl ItemsSource="{Binding AutoProfileRules}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Margin="0,0,0,8"
+                                    Padding="10"
+                                    CornerRadius="6"
+                                    BorderBrush="#DDD"
+                                    BorderThickness="1">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="110" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+
+                                    <CheckBox Grid.Row="0"
+                                              Grid.Column="0"
+                                              Margin="0,0,8,0"
+                                              VerticalAlignment="Center"
+                                              IsChecked="{Binding IsEnabled}"
+                                              ToolTip="규칙 사용" />
+                                    <TextBlock Grid.Row="0"
+                                               Grid.Column="1"
+                                               VerticalAlignment="Center"
+                                               FontWeight="SemiBold"
+                                               Text="{Binding Priority, StringFormat='우선순위 {0}'}" />
+                                    <TextBox Grid.Row="0"
+                                             Grid.Column="2"
+                                             VerticalContentAlignment="Center"
+                                             Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}"
+                                             ToolTip="규칙 이름 (알림에 표시, 비워도 됨)" />
+                                    <StackPanel Grid.Row="0"
+                                                Grid.Column="3"
+                                                Margin="8,0,0,0"
+                                                Orientation="Horizontal">
+                                        <Button Width="32"
+                                                Margin="0,0,4,0"
+                                                Click="MoveAutoProfileRuleUpButton_OnClick"
+                                                Content="▲"
+                                                ToolTip="우선순위 올리기" />
+                                        <Button Width="32"
+                                                Margin="0,0,4,0"
+                                                Click="MoveAutoProfileRuleDownButton_OnClick"
+                                                Content="▼"
+                                                ToolTip="우선순위 내리기" />
+                                        <Button Width="56"
+                                                Click="RemoveAutoProfileRuleButton_OnClick"
+                                                Content="삭제" />
+                                    </StackPanel>
+
+                                    <TextBlock Grid.Row="1"
+                                               Grid.Column="1"
+                                               Margin="0,8,0,0"
+                                               VerticalAlignment="Center"
+                                               Text="실행되면" />
+                                    <ComboBox Grid.Row="1"
+                                              Grid.Column="2"
+                                              Grid.ColumnSpan="2"
+                                              Margin="0,8,0,0"
+                                              IsEditable="True"
+                                              IsTextSearchEnabled="False"
+                                              ItemsSource="{Binding DataContext.RunningProcessNames, RelativeSource={RelativeSource AncestorType=Window}}"
+                                              Text="{Binding ProcessNamesText, UpdateSourceTrigger=PropertyChanged}"
+                                              ToolTip="예: TslGame.exe, SC2_x64.exe" />
+
+                                    <TextBlock Grid.Row="2"
+                                               Grid.Column="1"
+                                               Margin="0,8,0,0"
+                                               VerticalAlignment="Center"
+                                               Text="적용할 프로필" />
+                                    <StackPanel Grid.Row="2"
+                                                Grid.Column="2"
+                                                Grid.ColumnSpan="2"
+                                                Margin="0,8,0,0"
+                                                Orientation="Horizontal">
+                                        <ComboBox Width="200"
+                                                  DisplayMemberPath="Name"
+                                                  ItemsSource="{Binding DataContext.AudioProfiles, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                  SelectedValuePath="Id"
+                                                  SelectedValue="{Binding ProfileId}" />
+                                        <TextBlock Margin="12,0,8,0"
+                                                   VerticalAlignment="Center"
+                                                   Text="꺼지면" />
+                                        <ComboBox Width="130"
+                                                  DisplayMemberPath="Name"
+                                                  ItemsSource="{Binding DataContext.RestoreModeOptions, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                  SelectedValuePath="Mode"
+                                                  SelectedValue="{Binding RestoreMode}" />
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <Button Width="132"
+                        Margin="0,0,0,8"
+                        HorizontalAlignment="Left"
+                        Click="AddAutoProfileRuleButton_OnClick"
+                        Content="규칙 추가"
+                        IsEnabled="{Binding HasAudioProfiles}" />
 
                 <Separator Margin="0,8,0,16" />
 

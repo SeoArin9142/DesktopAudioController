@@ -241,7 +241,47 @@ public sealed class SettingsService : ISettingsService
         settings.LastAppliedAudioProfileId = NormalizeLastAppliedAudioProfileId(
             settings.LastAppliedAudioProfileId,
             settings.AudioProfiles);
+        settings.AutoProfileRules = NormalizeAutoProfileRules(settings.AutoProfileRules);
+        settings.AutoProfileFallbackProfileId = NormalizeLastAppliedAudioProfileId(
+            settings.AutoProfileFallbackProfileId,
+            settings.AudioProfiles);
         return settings;
+    }
+
+    private static List<AutoProfileRule> NormalizeAutoProfileRules(IEnumerable<AutoProfileRule>? rules)
+    {
+        var normalizedRules = new List<AutoProfileRule>();
+        if (rules is null)
+        {
+            return normalizedRules;
+        }
+
+        foreach (var rule in rules)
+        {
+            if (rule is null)
+            {
+                continue;
+            }
+
+            rule.Id = string.IsNullOrWhiteSpace(rule.Id)
+                ? Guid.NewGuid().ToString("N")
+                : rule.Id.Trim();
+            rule.Name = rule.Name?.Trim() ?? string.Empty;
+            rule.ProfileId = rule.ProfileId?.Trim() ?? string.Empty;
+            rule.ProcessNames = (rule.ProcessNames ?? [])
+                .Select(ProcessNameMatcher.Normalize)
+                .Where(name => !string.IsNullOrWhiteSpace(name))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            if (!Enum.IsDefined(rule.RestoreMode))
+            {
+                rule.RestoreMode = AutoProfileRestoreMode.PreviousProfile;
+            }
+
+            normalizedRules.Add(rule);
+        }
+
+        return normalizedRules;
     }
 
     private static List<ProgramAudioPreference> NormalizeProgramAudioPreferences(IEnumerable<ProgramAudioPreference>? preferences)
@@ -299,6 +339,16 @@ public sealed class SettingsService : ISettingsService
                     .Distinct(StringComparer.Ordinal)
                     .ToList();
             profile.ProgramAudioPreferences = NormalizeProgramAudioPreferences(profile.ProgramAudioPreferences);
+            profile.DefaultOutputDeviceId = profile.DefaultOutputDeviceId?.Trim() ?? string.Empty;
+            profile.ProgramOutputRoutes = (profile.ProgramOutputRoutes ?? [])
+                .Where(route => route is not null && !string.IsNullOrWhiteSpace(ProcessNameMatcher.Normalize(route.ProcessName)))
+                .Select(route => new ProgramOutputRoute
+                {
+                    ProcessName = ProcessNameMatcher.Normalize(route.ProcessName),
+                    TargetDeviceId = route.TargetDeviceId?.Trim() ?? string.Empty
+                })
+                .ToList();
+            profile.Hotkey = profile.Hotkey?.Trim() ?? string.Empty;
             normalizedProfiles.Add(profile);
         }
 

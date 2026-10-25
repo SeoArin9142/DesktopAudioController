@@ -43,6 +43,35 @@ internal static class ApplicationAudioOutputPolicy
                 $"앱별 출력 정책 일부 role 실패 processId={processId} endpointAbi=HString endpointIdKind=PackedRender successfulRoles=[{string.Join(", ", successfulRoles)}] failedRoles=[{string.Join(", ", failedRoles)}]");
     }
 
+    /// <summary>
+    /// 지정한 프로세스의 앱별 출력 지정을 지워 Windows 기본 출력 장치를 따르게 합니다.
+    /// </summary>
+    public static void ClearPersistedDefaultOutputDevice(uint processId)
+    {
+        if (processId == 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(processId), "프로세스 ID가 0인 세션은 출력 장치를 변경할 수 없습니다.");
+        }
+
+        // 빈 HSTRING(null)을 넘기면 Windows 볼륨 믹서의 "기본값"과 같은 상태로 돌아갑니다.
+        ApplyPolicyToRoles(
+            role =>
+            {
+                using var factory = CreateFactory();
+                return factory.SetPersistedDefaultAudioEndpointForProcessHString(
+                    processId,
+                    AudioDataFlow.Render,
+                    role,
+                    IntPtr.Zero);
+            },
+            roleSuccessLog: role =>
+                $"앱별 출력 정책 해제 성공 processId={processId} role={role}",
+            roleFailureLog: (role, hresult) =>
+                $"앱별 출력 정책 해제 실패 processId={processId} role={role} hresult={hresult}",
+            partialFailureLog: (successfulRoles, failedRoles) =>
+                $"앱별 출력 정책 해제 일부 role 실패 processId={processId} successfulRoles=[{string.Join(", ", successfulRoles)}] failedRoles=[{string.Join(", ", failedRoles)}]");
+    }
+
     private static uint ApplyProcessPolicyRole(
         uint processId,
         string policyEndpointId,

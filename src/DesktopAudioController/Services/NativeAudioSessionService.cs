@@ -226,6 +226,83 @@ public sealed class NativeAudioSessionService : IAudioSessionService, IDisposabl
             $"앱별 출력 장치 정책 변경에 실패했습니다. processResults=[{FormatFailures(processFailures)}]");
     }
 
+    /// <summary>
+    /// 실행 중인 같은 이름의 프로세스 전부에 앱별 출력 장치 정책을 적용합니다.
+    /// targetDeviceId 가 비어 있으면 앱별 지정을 지웁니다. 바꾼 프로세스 수를 반환합니다.
+    /// </summary>
+    public int SetProcessOutputDevice(string processName, string targetDeviceId)
+    {
+        var normalizedName = ProcessNameMatcher.Normalize(processName);
+        if (normalizedName.Length == 0)
+        {
+            throw new ArgumentException("프로세스 이름이 비어 있습니다.", nameof(processName));
+        }
+
+        var processIds = new List<uint>();
+        foreach (var process in Process.GetProcessesByName(normalizedName))
+        {
+            using (process)
+            {
+                processIds.Add((uint)process.Id);
+            }
+        }
+
+        AppLog.Info(
+            "NativeAudioSessionService",
+            $"SetProcessOutputDevice 시작 processName={normalizedName} processIds=[{string.Join(", ", processIds)}] deviceId={(string.IsNullOrWhiteSpace(targetDeviceId) ? "(Windows 기본)" : targetDeviceId)}");
+        if (processIds.Count == 0)
+        {
+            return 0;
+        }
+
+        var changedCount = 0;
+        var processFailures = new List<string>();
+        foreach (var processId in processIds)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(targetDeviceId))
+                {
+                    try
+                    {
+                        ApplicationAudioOutputPolicy.ClearPersistedDefaultOutputDevice(processId);
+                    }
+                    catch (InvalidOperationException exception) when (exception.Message.Contains("0x80070057", StringComparison.Ordinal))
+                    {
+                        // 앱별 지정이 원래 없던 프로세스는 해제 요청에 E_INVALIDARG 를 돌려줍니다. 이미 원하는 상태이므로 성공으로 봅니다.
+                        AppLog.Info("NativeAudioSessionService", $"SetProcessOutputDevice 해제할 앱별 지정 없음 processId={processId}");
+                    }
+                }
+                else
+                {
+                    ApplicationAudioOutputPolicy.SetPersistedDefaultOutputDevice(processId, targetDeviceId);
+                }
+
+                changedCount++;
+            }
+            catch (Exception exception)
+            {
+                // 보호된 프로세스나 이미 종료된 PID 는 실패할 수 있으므로 나머지 PID 를 계속 시도합니다.
+                processFailures.Add($"{processId}:{exception.Message}");
+            }
+        }
+
+        if (changedCount == 0)
+        {
+            throw new InvalidOperationException(
+                $"앱별 출력 장치 정책 변경에 실패했습니다. processResults=[{FormatFailures(processFailures)}]");
+        }
+
+        if (processFailures.Count > 0)
+        {
+            AppLog.Warn(
+                "NativeAudioSessionService",
+                $"SetProcessOutputDevice 일부 PID 실패 processName={normalizedName} failures=[{FormatFailures(processFailures)}]");
+        }
+
+        return changedCount;
+    }
+
     private static string FormatFailures(IReadOnlyList<string> failures)
     {
         const int MaxVisibleFailures = 5;

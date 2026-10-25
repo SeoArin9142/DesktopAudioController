@@ -65,4 +65,29 @@ public sealed class AppSettings
     /// 사용자가 명시적으로 저장하고 적용할 수 있는 수동 오디오 프로필 목록입니다.
     /// </summary>
     public List<AudioProfile> AudioProfiles { get; set; } = [];
+
+    /// <summary>
+    /// 실행 중인 프로그램에 맞춰 프로필을 자동으로 바꿀지 여부입니다.
+    /// </summary>
+    public bool AutoProfileSwitchEnabled { get; set; }
+
+    /// <summary>
+    /// 자동 프로필 전환 규칙 목록입니다. 앞에 있는 규칙이 우선합니다.
+    /// </summary>
+    public List<AutoProfileRule> AutoProfileRules { get; set; } = [];
+
+    /// <summary>
+    /// "기본 프로필로 돌아가기" 규칙이 끝났을 때 적용할 프로필 ID입니다.
+    /// </summary>
+    public string AutoProfileFallbackProfileId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// 자동 전환이나 단축키로 프로필이 바뀔 때 트레이 알림을 띄울지 여부입니다.
+    /// </summary>
+    public bool ShowAutoProfileNotifications { get; set; } = true;
+
+    /// <summary>
+    /// 프로필별 전역 단축키를 등록할지 여부입니다.
+    /// </summary>
+    public bool EnableProfileHotkeys { get; set; }
 }

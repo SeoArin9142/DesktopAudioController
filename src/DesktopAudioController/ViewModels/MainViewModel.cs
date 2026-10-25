@@ -1137,6 +1137,22 @@ public sealed class MainViewModel : ObservableObject
     }
 
     /// <summary>
+    /// 프로필의 앱별 출력 규칙을 실행 파일 이름 기준으로 적용하고, 바꾼 프로세스 수를 반환합니다.
+    /// </summary>
+    public Task<int> SetProcessOutputDeviceAsync(string processName, string targetDeviceId)
+    {
+        return Task.Run(() => _audioSessionService.SetProcessOutputDevice(processName, targetDeviceId));
+    }
+
+    /// <summary>
+    /// 메인 화면에 표시하지 않는 장치도 프로필에 따라 기본 출력 장치로 바꿀 수 있게 서비스로 바로 전달합니다.
+    /// </summary>
+    public void SetDefaultOutputDevice(string deviceId)
+    {
+        OnSetDefaultDevice(deviceId);
+    }
+
+    /// <summary>
     /// 세션 볼륨 변경을 서비스 계층으로 전달합니다.
     /// </summary>
     private void OnSessionVolumeChanged(string deviceId, string sessionId, int volume)
@@ -1185,7 +1201,12 @@ public sealed class MainViewModel : ObservableObject
                 })
                 .ToList(),
             LastAppliedAudioProfileId = settings.LastAppliedAudioProfileId,
-            AudioProfiles = AudioProfileStore.CloneProfiles(settings.AudioProfiles)
+            AudioProfiles = AudioProfileStore.CloneProfiles(settings.AudioProfiles),
+            AutoProfileSwitchEnabled = settings.AutoProfileSwitchEnabled,
+            AutoProfileRules = AudioProfileStore.CloneAutoProfileRules(settings.AutoProfileRules),
+            AutoProfileFallbackProfileId = settings.AutoProfileFallbackProfileId,
+            ShowAutoProfileNotifications = settings.ShowAutoProfileNotifications,
+            EnableProfileHotkeys = settings.EnableProfileHotkeys
         };
     }
 

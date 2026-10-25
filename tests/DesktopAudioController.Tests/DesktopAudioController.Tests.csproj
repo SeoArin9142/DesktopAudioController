@@ -27,6 +27,13 @@
     <Compile Include="..\..\src\DesktopAudioController\Models\AudioDeviceStartupSnapshot.cs" Link="Source\Models\AudioDeviceStartupSnapshot.cs" />
     <Compile Include="..\..\src\DesktopAudioController\Models\AudioSessionInfo.cs" Link="Source\Models\AudioSessionInfo.cs" />
     <Compile Include="..\..\src\DesktopAudioController\Models\ProgramAudioPreference.cs" Link="Source\Models\ProgramAudioPreference.cs" />
+    <Compile Include="..\..\src\DesktopAudioController\Models\ProgramOutputRoute.cs" Link="Source\Models\ProgramOutputRoute.cs" />
+    <Compile Include="..\..\src\DesktopAudioController\Models\AutoProfileRule.cs" Link="Source\Models\AutoProfileRule.cs" />
+    <Compile Include="..\..\src\DesktopAudioController\Services\ProcessNameMatcher.cs" Link="Source\Services\ProcessNameMatcher.cs" />
+    <Compile Include="..\..\src\DesktopAudioController\Services\AutoProfileSwitchEngine.cs" Link="Source\Services\AutoProfileSwitchEngine.cs" />
+    <Compile Include="..\..\src\DesktopAudioController\Services\AutoProfileSettingsValidator.cs" Link="Source\Services\AutoProfileSettingsValidator.cs" />
+    <Compile Include="..\..\src\DesktopAudioController\Services\HotkeyGesture.cs" Link="Source\Services\HotkeyGesture.cs" />
+    <Compile Include="..\..\src\DesktopAudioController\Services\AudioProcessOutputChangeCommand.cs" Link="Source\Services\AudioProcessOutputChangeCommand.cs" />
     <Compile Include="..\..\src\DesktopAudioController\Services\AudioDeviceProbeCommand.cs" Link="Source\Services\AudioDeviceProbeCommand.cs" />
     <Compile Include="..\..\src\DesktopAudioController\Services\AudioDeviceCatalogSnapshotCache.cs" Link="Source\Services\AudioDeviceCatalogSnapshotCache.cs" />
     <Compile Include="..\..\src\DesktopAudioController\Services\AudioDeviceStartupSnapshotService.cs" Link="Source\Services\AudioDeviceStartupSnapshotService.cs" />

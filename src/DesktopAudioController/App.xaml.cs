@@ -129,6 +129,12 @@ public partial class App : System.Windows.Application
             return;
         }
 
+        if (AudioProcessOutputChangeCommand.TryParse(e.Args, out var processOutputChangeCommand))
+        {
+            Shutdown(AudioSessionOutputChangeWorker.RunForProcess(processOutputChangeCommand));
+            return;
+        }
+
         if (!TryEnsurePrimaryInstance())
         {
             Shutdown();

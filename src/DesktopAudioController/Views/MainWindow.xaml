@@ -18,6 +18,7 @@
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
             <StackPanel Grid.Row="0">
@@ -72,6 +73,48 @@
                         Click="SettingsButton_OnClick"
                         Content="설정" />
             </WrapPanel>
+
+            <!-- 저장한 프로필을 한 번에 바꾸는 영역입니다. 버튼은 코드에서 프로필 목록대로 만듭니다. -->
+            <Border Grid.Row="2"
+                    Margin="0,4,0,0"
+                    Padding="12,10"
+                    CornerRadius="6"
+                    BorderBrush="#DDD"
+                    BorderThickness="1">
+                <StackPanel>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock VerticalAlignment="Center"
+                                   FontWeight="SemiBold"
+                                   Text="프로필" />
+                        <TextBlock x:Name="ProfileStatusText"
+                                   Grid.Column="1"
+                                   Margin="12,0,8,0"
+                                   VerticalAlignment="Center"
+                                   Foreground="#666"
+                                   TextTrimming="CharacterEllipsis" />
+                        <Button x:Name="AutoProfilePauseButton"
+                                      Grid.Column="2"
+                                      Padding="10,2"
+                                      Click="AutoProfilePauseButton_OnClick"
+                                      Content="자동 전환 일시정지"
+                                      ToolTip="실행 프로그램에 따른 자동 프로필 전환을 잠시 멈춥니다."
+                                      Visibility="Collapsed" />
+                    </Grid>
+                    <WrapPanel x:Name="ProfileButtonsPanel"
+                               Margin="0,8,0,0" />
+                    <TextBlock x:Name="ProfileEmptyText"
+                               Margin="0,8,0,0"
+                               Foreground="#666"
+                               Text="저장한 프로필이 없습니다. 설정 > 수동 프로필에서 지금 상태를 프로필로 만들 수 있습니다."
+                               TextWrapping="Wrap"
+                               Visibility="Collapsed" />
+                </StackPanel>
+            </Border>
         </Grid>
 
         <!-- 본문 영역은 빈 상태 안내와 장치 카드 목록을 같은 영역에서 전환합니다. -->

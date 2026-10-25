@@ -40,24 +40,27 @@ internal static class SettingsSavePlanner
             preservedConfiguredVisibleDevices = true;
         }
 
+        var settings = new AppSettings
+        {
+            VisibleDeviceIds = selectedVisibleDeviceIds,
+            StartMinimized = startMinimized,
+            RunAtWindowsStartup = runAtWindowsStartup,
+            MinimizeToTray = minimizeToTray,
+            ShowOnlyConnectedDevices = showOnlyConnectedDevices,
+            ShowSystemSounds = showSystemSounds,
+            ShowOnlyActiveSessions = showOnlyActiveSessions,
+            IncludePreReleaseUpdates = includePreReleaseUpdates,
+            EnableDebugLogs = enableDebugLogs,
+            ProgramAudioPreferences = currentSettings.ProgramAudioPreferences
+                .Where(preference => !string.IsNullOrWhiteSpace(preference.MatchKey))
+                .ToList(),
+            LastAppliedAudioProfileId = currentSettings.LastAppliedAudioProfileId,
+            AudioProfiles = AudioProfileStore.CloneProfiles(currentSettings.AudioProfiles)
+        };
+        AudioProfileStore.CopyAutoProfileSettings(currentSettings, settings);
+
         return new SettingsSavePlan(
-            new AppSettings
-            {
-                VisibleDeviceIds = selectedVisibleDeviceIds,
-                StartMinimized = startMinimized,
-                RunAtWindowsStartup = runAtWindowsStartup,
-                MinimizeToTray = minimizeToTray,
-                ShowOnlyConnectedDevices = showOnlyConnectedDevices,
-                ShowSystemSounds = showSystemSounds,
-                ShowOnlyActiveSessions = showOnlyActiveSessions,
-                IncludePreReleaseUpdates = includePreReleaseUpdates,
-                EnableDebugLogs = enableDebugLogs,
-                ProgramAudioPreferences = currentSettings.ProgramAudioPreferences
-                    .Where(preference => !string.IsNullOrWhiteSpace(preference.MatchKey))
-                    .ToList(),
-                LastAppliedAudioProfileId = currentSettings.LastAppliedAudioProfileId,
-                AudioProfiles = AudioProfileStore.CloneProfiles(currentSettings.AudioProfiles)
-            },
+            settings,
             preservedConfiguredVisibleDevices,
             RequiresRestartToEnableDebugLogs(currentSettings.EnableDebugLogs, enableDebugLogs));
     }
