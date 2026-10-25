@@ -445,6 +445,7 @@ public sealed class MainViewModel : ObservableObject
             VisibleDevices.Add(deviceViewModel);
         }
 
+        MoveDefaultDeviceToTop();
         HasConfiguredDevices = snapshot.HasConfiguredDevices;
     }
 
@@ -483,6 +484,26 @@ public sealed class MainViewModel : ObservableObject
             }
         }
 
+        MoveDefaultDeviceToTop();
+    }
+
+    /// <summary>
+    /// 지금 Windows 기본 출력 장치 카드를 맨 위로 올립니다. 나머지 장치는 원래 순서를 유지합니다.
+    /// 카드 객체를 옮기기만 하므로 열어 둔 프로그램별 볼륨 패널은 그대로 유지됩니다.
+    /// </summary>
+    public void MoveDefaultDeviceToTop()
+    {
+        var defaultDevice = VisibleDevices.FirstOrDefault(device => device.IsDefault);
+        if (defaultDevice is null)
+        {
+            return;
+        }
+
+        var index = VisibleDevices.IndexOf(defaultDevice);
+        if (index > 0)
+        {
+            VisibleDevices.Move(index, 0);
+        }
     }
 
     /// <summary>

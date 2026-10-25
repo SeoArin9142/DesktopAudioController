@@ -1971,6 +1971,7 @@ public partial class MainWindow : Window
                 device.IsMuted);
         }
 
+        _viewModel.MoveDefaultDeviceToTop();
         RefreshTrayMenu(force: true);
     }
 
