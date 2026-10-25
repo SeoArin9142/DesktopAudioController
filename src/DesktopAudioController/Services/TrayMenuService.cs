@@ -207,7 +207,7 @@ public sealed class TrayMenuService : IDisposable
     /// </summary>
     private static Forms.ToolStripMenuItem BuildVolumeMenu(Device device)
     {
-        var volumeMenu = new Forms.ToolStripMenuItem($"볼륨: {device.Volume}%{(device.IsMuted ? " (음소거)" : string.Empty)}");
+        var volumeMenu = new Forms.ToolStripMenuItem($"현재 출력 장치 볼륨: {device.Volume}%{(device.IsMuted ? " (음소거)" : string.Empty)}");
         var nearestStep = (int)Math.Round(device.Volume / 10.0, MidpointRounding.AwayFromZero) * 10;
         for (var volume = 100; volume >= 0; volume -= 10)
         {
