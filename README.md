@@ -2,6 +2,8 @@
 
 **한국어** | [English](README.en.md)
 
+> 🌐 **English speakers:** please read the [English README](README.en.md). The app UI also supports English (switch with the `English` button on the main window).
+
 DesktopAudioController는 Windows에서 여러 출력 장치를 자주 바꾸거나, 프로그램별 볼륨과 출력 장치를 빠르게 제어해야 할 때 쓰는 데스크톱 유틸리티입니다.
 
 기본 Windows 볼륨 믹서보다 좁은 목적에 맞춰 만들어졌습니다. 사용자가 고른 출력 장치만 메인 화면에 표시하고, 각 장치에서 실제로 소리를 내는 프로그램 세션을 장치 카드 안에서 바로 조절합니다.
