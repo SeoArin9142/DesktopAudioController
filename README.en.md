@@ -8,7 +8,7 @@ It is built for a narrower purpose than the Windows volume mixer: the main windo
 
 > **Language:** The UI is available in **English and Korean**. It follows the Windows display language by default; use the `English` / `한국어` button at the top of the main window to switch instantly (no restart). You can also choose Auto / Korean / English in Settings.
 
-- Latest version: `v0.19.1`
+- Latest version: `v0.20.0`
 - Distribution: `win-x64` portable zip (self-contained single-file exe, no .NET install needed)
 - Requirements: Windows 10/11 x64
 - Releases: <https://github.com/SeoArin9142/DesktopAudioController/releases>
@@ -33,7 +33,7 @@ It is built for a narrower purpose than the Windows volume mixer: the main windo
 
 ## Quick start
 
-1. Download `DesktopAudioController-v0.19.1-win-x64.zip` from the [releases page](https://github.com/SeoArin9142/DesktopAudioController/releases).
+1. Download `DesktopAudioController-v0.20.0-win-x64.zip` from the [releases page](https://github.com/SeoArin9142/DesktopAudioController/releases).
 2. Extract it anywhere, for example:
 
 ```text
@@ -51,7 +51,7 @@ Settings and logs are stored in `%LocalAppData%\DesktopAudioController`, not in 
 Each release also includes a `.sha256` file:
 
 ```bash
-sha256sum -c DesktopAudioController-v0.19.1-win-x64.zip.sha256
+sha256sum -c DesktopAudioController-v0.20.0-win-x64.zip.sha256
 ```
 
 ## Main window
