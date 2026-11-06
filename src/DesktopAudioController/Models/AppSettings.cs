@@ -95,4 +95,9 @@ public sealed class AppSettings
     /// 화면 언어입니다. 비어 있으면 Windows 표시 언어를 따르고, "ko" 또는 "en" 이면 그 언어로 고정합니다.
     /// </summary>
     public string UiLanguage { get; set; } = string.Empty;
+
+    /// <summary>
+    /// 표시 장치의 마지막으로 알려진 이름입니다. Windows 가 같은 장치에 새 ID 를 붙였을 때 이름으로 다시 찾는 데 씁니다.
+    /// </summary>
+    public List<KnownDeviceName> KnownDeviceNames { get; set; } = [];
 }

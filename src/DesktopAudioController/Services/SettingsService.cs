@@ -243,6 +243,9 @@ public sealed class SettingsService : ISettingsService
             settings.LastAppliedAudioProfileId,
             settings.AudioProfiles);
         settings.AutoProfileRules = NormalizeAutoProfileRules(settings.AutoProfileRules);
+        settings.KnownDeviceNames = (settings.KnownDeviceNames ?? [])
+            .Where(knownName => knownName is not null && !string.IsNullOrWhiteSpace(knownName.DeviceId) && !string.IsNullOrWhiteSpace(knownName.Name))
+            .ToList();
         settings.UiLanguage = settings.UiLanguage?.Trim().ToLowerInvariant() switch
         {
             Loc.KoreanLanguage => Loc.KoreanLanguage,

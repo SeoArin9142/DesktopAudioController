@@ -49,7 +49,8 @@ internal static class AudioProfileStore
             AutoProfileFallbackProfileId = currentSettings.AutoProfileFallbackProfileId,
             ShowAutoProfileNotifications = currentSettings.ShowAutoProfileNotifications,
             EnableProfileHotkeys = currentSettings.EnableProfileHotkeys,
-            UiLanguage = currentSettings.UiLanguage
+            UiLanguage = currentSettings.UiLanguage,
+            KnownDeviceNames = CloneKnownDeviceNames(currentSettings.KnownDeviceNames)
         };
     }
 
@@ -166,6 +167,15 @@ internal static class AudioProfileStore
         destination.ShowAutoProfileNotifications = source.ShowAutoProfileNotifications;
         destination.EnableProfileHotkeys = source.EnableProfileHotkeys;
         destination.UiLanguage = source.UiLanguage;
+        destination.KnownDeviceNames = CloneKnownDeviceNames(source.KnownDeviceNames);
+    }
+
+    public static List<KnownDeviceName> CloneKnownDeviceNames(IEnumerable<KnownDeviceName>? knownNames)
+    {
+        return (knownNames ?? [])
+            .Where(knownName => knownName is not null)
+            .Select(knownName => new KnownDeviceName { DeviceId = knownName.DeviceId, Name = knownName.Name })
+            .ToList();
     }
 
     public static List<ProgramAudioPreference> CloneProgramAudioPreferences(IEnumerable<ProgramAudioPreference> preferences)

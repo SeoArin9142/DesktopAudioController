@@ -37,6 +37,7 @@
     <Compile Include="..\..\src\DesktopAudioController\Localization\EnglishStrings.cs" Link="Source\Localization\EnglishStrings.cs" />
     <Compile Include="..\..\src\DesktopAudioController\Services\ProfileCommandLine.cs" Link="Source\Services\ProfileCommandLine.cs" />
     <Compile Include="..\..\src\DesktopAudioController\Services\ProfileDeviceResolver.cs" Link="Source\Services\ProfileDeviceResolver.cs" />
+    <Compile Include="..\..\src\DesktopAudioController\Services\DeviceIdRemapper.cs" Link="Source\Services\DeviceIdRemapper.cs" />
     <Compile Include="..\..\src\DesktopAudioController\Services\AudioProcessOutputChangeCommand.cs" Link="Source\Services\AudioProcessOutputChangeCommand.cs" />
     <Compile Include="..\..\src\DesktopAudioController\Services\AudioDeviceProbeCommand.cs" Link="Source\Services\AudioDeviceProbeCommand.cs" />
     <Compile Include="..\..\src\DesktopAudioController\Services\AudioDeviceCatalogSnapshotCache.cs" Link="Source\Services\AudioDeviceCatalogSnapshotCache.cs" />

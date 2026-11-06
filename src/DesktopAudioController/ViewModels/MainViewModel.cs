@@ -281,6 +281,7 @@ public sealed class MainViewModel : ObservableObject
     {
         // 파일에서 읽어온 현재 사용자 설정입니다.
         var settings = _settingsService.Load();
+        UpdateDeviceIdsForCurrentDevices(settings, devices, isLiveDeviceList: includeSessions);
         _cachedSettings = CloneSettings(settings);
 
         // 조회 성능을 위해 선택된 ID 목록을 해시셋으로 변환합니다.
@@ -308,6 +309,37 @@ public sealed class MainViewModel : ObservableObject
             Devices = visibleDevices,
             ProgramAudioPreferences = settings.ProgramAudioPreferences
         };
+    }
+
+    /// <summary>
+    /// 표시 장치 이름을 기억하고, Windows 가 장치에 새 ID 를 붙였으면 설정·프로필의 옛 ID 를 새 ID 로 바꿔 저장합니다.
+    /// 시작 직후 캐시(지난 실행의 장치 목록)로 그릴 때는 이름만 기억하고, 실제 장치 목록일 때만 ID 를 바꿉니다.
+    /// </summary>
+    private void UpdateDeviceIdsForCurrentDevices(AppSettings settings, IReadOnlyList<AudioDeviceInfo> devices, bool isLiveDeviceList)
+    {
+        try
+        {
+            var changed = DeviceIdRemapper.RememberVisibleDeviceNames(settings, devices);
+            if (isLiveDeviceList && devices.Count > 0)
+            {
+                foreach (var (oldId, newId, name) in DeviceIdRemapper.RemapMissingDeviceIds(settings, devices))
+                {
+                    AppLog.Info("MainViewModel", $"장치 ID 변경 반영 name={name} oldDeviceId={oldId} deviceId={newId}");
+                    changed = true;
+                }
+
+                changed |= DeviceIdRemapper.RememberVisibleDeviceNames(settings, devices);
+            }
+
+            if (changed)
+            {
+                _settingsService.Save(settings);
+            }
+        }
+        catch (Exception exception)
+        {
+            AppLog.Warn("MainViewModel", "장치 ID 이름 기억·변경 반영 실패", exception);
+        }
     }
 
     /// <summary>
@@ -1419,7 +1451,8 @@ public sealed class MainViewModel : ObservableObject
             AutoProfileFallbackProfileId = settings.AutoProfileFallbackProfileId,
             ShowAutoProfileNotifications = settings.ShowAutoProfileNotifications,
             EnableProfileHotkeys = settings.EnableProfileHotkeys,
-            UiLanguage = settings.UiLanguage
+            UiLanguage = settings.UiLanguage,
+            KnownDeviceNames = AudioProfileStore.CloneKnownDeviceNames(settings.KnownDeviceNames)
         };
     }
 
