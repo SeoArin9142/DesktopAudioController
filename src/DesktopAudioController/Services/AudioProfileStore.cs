@@ -32,7 +32,9 @@ internal static class AudioProfileStore
     {
         return new AppSettings
         {
-            VisibleDeviceIds = CloneVisibleDeviceIds(profile.VisibleDeviceIds),
+            // 표시 장치 목록은 "이 PC 에 어떤 장치가 있나" 에 가까운 PC 전체 설정이라 프로필 전환 때 바꾸지 않습니다.
+            // (예전 PC·옛 장치 기준으로 저장된 프로필이 적용될 때마다 설정창에서 고른 목록을 덮어쓰던 문제)
+            VisibleDeviceIds = CloneVisibleDeviceIds(currentSettings.VisibleDeviceIds),
             StartMinimized = currentSettings.StartMinimized,
             RunAtWindowsStartup = currentSettings.RunAtWindowsStartup,
             MinimizeToTray = currentSettings.MinimizeToTray,
@@ -244,26 +246,11 @@ internal static class AudioProfileStore
 
     private static bool ProfileMatchesSettings(AudioProfile profile, AppSettings settings)
     {
-        return EquivalentVisibleDeviceIds(profile.VisibleDeviceIds, settings.VisibleDeviceIds) &&
-            profile.ShowOnlyConnectedDevices == settings.ShowOnlyConnectedDevices &&
+        // 표시 장치 목록은 프로필이 바꾸지 않으므로 비교하지 않습니다.
+        return profile.ShowOnlyConnectedDevices == settings.ShowOnlyConnectedDevices &&
             profile.ShowSystemSounds == settings.ShowSystemSounds &&
             profile.ShowOnlyActiveSessions == settings.ShowOnlyActiveSessions &&
             EquivalentProgramAudioPreferences(profile.ProgramAudioPreferences, settings.ProgramAudioPreferences);
-    }
-
-    private static bool EquivalentVisibleDeviceIds(IEnumerable<string> left, IEnumerable<string> right)
-    {
-        return NormalizeVisibleDeviceIds(left).SequenceEqual(NormalizeVisibleDeviceIds(right), StringComparer.Ordinal);
-    }
-
-    private static List<string> NormalizeVisibleDeviceIds(IEnumerable<string> visibleDeviceIds)
-    {
-        return visibleDeviceIds
-            .Where(deviceId => !string.IsNullOrWhiteSpace(deviceId))
-            .Select(deviceId => deviceId.Trim())
-            .Distinct(StringComparer.Ordinal)
-            .OrderBy(deviceId => deviceId, StringComparer.Ordinal)
-            .ToList();
     }
 
     private static bool EquivalentProgramAudioPreferences(

@@ -86,7 +86,7 @@ public sealed class AudioProfileStoreTests
 
         var applied = AudioProfileStore.ApplyProfile(currentSettings, profile);
 
-        Assert.Equal(["device-profile"], applied.VisibleDeviceIds);
+        Assert.Equal(currentSettings.VisibleDeviceIds, applied.VisibleDeviceIds);
         Assert.True(applied.StartMinimized);
         Assert.True(applied.RunAtWindowsStartup);
         Assert.False(applied.MinimizeToTray);
@@ -192,6 +192,7 @@ public sealed class AudioProfileStoreTests
         var settings = new AppSettings
         {
             VisibleDeviceIds = ["device-custom"],
+            ShowSystemSounds = true,
             LastAppliedAudioProfileId = "profile-b",
             AudioProfiles =
             [
@@ -199,7 +200,8 @@ public sealed class AudioProfileStoreTests
                 {
                     Id = "profile-b",
                     Name = "B",
-                    VisibleDeviceIds = ["device-profile"]
+                    VisibleDeviceIds = ["device-profile"],
+                    ShowSystemSounds = false
                 }
             ]
         };
